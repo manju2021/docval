@@ -1,0 +1,557 @@
+{% extends "base.html" %}
+{% set active_nav = "val" %}
+{% set step = 3 %}
+{% block title %}Validation Detail — {{ record.incident_id[:20] }}{% endblock %}
+
+{% block head %}
+<style>
+  .sticky-stats {
+    position: sticky;
+    top: 52px;
+    z-index: 100;
+    background: var(--surface-2);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border)
+  }
+
+  .sticky-stats .stat-row {
+    margin-bottom: 0
+  }
+
+  .stat-chip-sm {
+    padding: 6px 11px !important
+  }
+
+  .stat-chip-sm .stat-val {
+    font-size: 1.05rem !important
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+    margin-bottom: 14px
+  }
+
+  .meta-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 9px 12px
+  }
+
+  .meta-item .meta-label {
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-3);
+    margin-bottom: 3px
+  }
+
+  .meta-item .meta-val {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-2);
+    font-family: 'IBM Plex Mono', monospace
+  }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+<div class="breadcrumb-bar">
+  <a href="/dashboard"><i class="bi bi-house-fill"></i> Dashboard</a>
+  <span class="sep">/</span>
+  <a href="/validations">Validations</a>
+  <span class="sep">/</span>
+  <span class="current mono" style="font-size:0.76rem">{{ record.incident_id }}</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- PAGE HEADER -->
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ record.doc_name }}{% if record.sub_doc_name and record.sub_doc_name != record.doc_name %}
+      — {{ record.sub_doc_name }}{% endif %}</h1>
+    <div class="page-subtitle" style="margin-top:5px;display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+      <span class="mono text-xs"
+        style="background:var(--surface-3);padding:2px 8px;border-radius:4px;color:var(--text-2)"><i
+          class="bi bi-hash"></i> {{ record.incident_id }}</span>
+      <span class="badge badge-na" style="font-size:0.68rem">Validation Detail</span>
+    </div>
+  </div>
+  <div style="display:flex;gap:7px">
+    <a href="/transactions?q={{ record.transaction_id }}&from_incident={{ record.incident_id }}"
+      class="btn btn-outline btn-sm" title="View SumApp Transaction"><i class="bi bi-arrow-up-right-square"></i> View
+      Transaction</a>
+    <a href="/api/export/detail/{{ record.incident_id }}" class="btn btn-outline btn-sm"><i class="bi bi-download"></i>
+      Export CSV</a>
+    <a href="/validations" class="btn btn-outline btn-sm"><i class="bi bi-arrow-left"></i> Back</a>
+  </div>
+</div>
+
+<!-- META INFO GRID -->
+<div class="meta-grid">
+  <div class="meta-item">
+    <div class="meta-label">Case ID</div>
+    <div class="meta-val">{{ record.case_id }}</div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-label">Group Number</div>
+    <div class="meta-val">{{ record.group_number }}</div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-label">Group Name</div>
+    <div class="meta-val" style="font-family:'IBM Plex Sans',sans-serif">{{ record.group_name }}</div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-label">Market Segment</div>
+    <div class="meta-val" style="font-family:'IBM Plex Sans',sans-serif">
+      <span class="badge"
+        style="background:{% if record.market_segment=='Large Group' %}#eff6ff{% else %}#f0fdf4{% endif %};color:{% if record.market_segment=='Large Group' %}#1d4ed8{% else %}#166534{% endif %};border:1px solid {% if record.market_segment=='Large Group' %}#93c5fd{% else %}#86efac{% endif %}">{{
+        record.market_segment }}</span>
+    </div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-label">Group Type</div>
+    <div class="meta-val">{{ record.group_type }}</div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-label">Contract Type</div>
+    <div class="meta-val">
+      <span class="badge {% if record.contract_type=='ACA' %}badge-xml{% else %}badge-resp{% endif %}">{{
+        record.contract_type }}</span>
+    </div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-label">Rate Type</div>
+    <div class="meta-val">{{ record.rate_type }}</div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-label">Census Tiers</div>
+    <div class="meta-val">Tier {{ record.census_tiers }}</div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-label">Document</div>
+    <div class="meta-val" style="font-family:'IBM Plex Sans',sans-serif;font-size:0.77rem">{{ record.doc_name }}</div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-label">Subdocument</div>
+    <div class="meta-val" style="font-family:'IBM Plex Sans',sans-serif;font-size:0.77rem">
+      <span class="badge badge-na" style="font-size:0.68rem">{{ record.sub_doc_name|default('N/A') }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- RELATED FILES SECTION -->
+<div class="card" style="margin-bottom:16px">
+  <div class="card-header" style="background:var(--surface);border-bottom:1px solid var(--border)">
+    <div class="card-title" style="color:var(--navy);font-size:0.85rem"><i class="bi bi-files"
+        style="color:var(--teal)"></i> Related Files</div>
+  </div>
+  <div style="padding:12px 16px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="viewFile('promptfile')"><i class="bi bi-file-earmark-code"></i>
+        Promptfile.json</button>
+      <button class="btn btn-ghost btn-sm" onclick="viewFile('mapping_doc')"><i
+          class="bi bi-file-earmark-spreadsheet"></i> mapping_doc.csv</button>
+      <button class="btn btn-ghost btn-sm" onclick="viewFile('rtf_doc')"><i class="bi bi-file-earmark-richtext"></i>
+        Document.rtf</button>
+      <button class="btn btn-ghost btn-sm" onclick="viewFile('system_mapping')"><i
+          class="bi bi-file-earmark-spreadsheet"></i> system_mapping_doc.csv</button>
+    </div>
+  </div>
+</div>
+
+<!-- STICKY SUMMARY STATS -->
+<div class="sticky-stats">
+  <div class="stat-row">
+    <div class="stat-chip stat-chip-sm"
+      style="border-left:3px solid {% if record.status=='Success' %}var(--match){% else %}var(--mismatch){% endif %}">
+      <div class="stat-icon"
+        style="width:26px;height:26px;background:{% if record.status=='Success' %}var(--match-bg){% else %}var(--mismatch-bg){% endif %};color:{% if record.status=='Success' %}var(--match){% else %}var(--mismatch){% endif %};font-size:0.8rem">
+        <i class="bi bi-shield-fill-{% if record.status=='Success' %}check{% else %}exclamation{% endif %}"></i>
+      </div>
+      <div>
+        <div class="stat-val"
+          style="color:{% if record.status=='Success' %}var(--match){% else %}var(--mismatch){% endif %}">{{
+          record.status }}</div>
+        <div class="stat-lbl">Status</div>
+      </div>
+    </div>
+    <div class="stat-chip stat-chip-sm" style="border-left:3px solid var(--teal)">
+      <div class="stat-icon"
+        style="width:26px;height:26px;background:var(--teal-glow);color:var(--teal);font-size:0.8rem"><i
+          class="bi bi-percent"></i></div>
+      <div>
+        <div class="stat-val mono" style="color:var(--teal)">{{ "%.1f"|format(record.match_rate) }}%</div>
+        <div class="stat-lbl">Match Rate</div>
+      </div>
+    </div>
+    <div class="stat-chip stat-chip-sm" style="border-left:3px solid var(--match)">
+      <div class="stat-icon"
+        style="width:26px;height:26px;background:var(--match-bg);color:var(--match);font-size:0.8rem"><i
+          class="bi bi-check-lg"></i></div>
+      <div>
+        <div class="stat-val mono" style="color:var(--match)">{{ match_count }}</div>
+        <div class="stat-lbl">Matches</div>
+      </div>
+    </div>
+    <div class="stat-chip stat-chip-sm" style="border-left:3px solid var(--mismatch)">
+      <div class="stat-icon"
+        style="width:26px;height:26px;background:var(--mismatch-bg);color:var(--mismatch);font-size:0.8rem"><i
+          class="bi bi-x-lg"></i></div>
+      <div>
+        <div class="stat-val mono" style="color:var(--mismatch)">{{ mismatch_count }}</div>
+        <div class="stat-lbl">Mismatches</div>
+      </div>
+    </div>
+    <div class="stat-chip stat-chip-sm" style="border-left:3px solid var(--rally)">
+      <div class="stat-icon"
+        style="width:26px;height:26px;background:var(--rally-bg);color:var(--rally);font-size:0.8rem"><i
+          class="bi bi-flag-fill"></i></div>
+      <div>
+        <div class="stat-val mono" style="color:var(--rally)" id="classified-count-val">{{ classified_count }}</div>
+        <div class="stat-lbl">Classified</div>
+      </div>
+    </div>
+    <div class="stat-chip stat-chip-sm" style="border-left:3px solid #64748b">
+      <div class="stat-icon"
+        style="width:26px;height:26px;background:var(--surface-3);color:var(--text-3);font-size:0.8rem"><i
+          class="bi bi-list-ol"></i></div>
+      <div>
+        <div class="stat-val mono">{{ rows|length }}</div>
+        <div class="stat-lbl">Elements</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MISMATCH ALERT -->
+{% if mismatch_count > 0 %}
+<div
+  style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:linear-gradient(135deg,#fef2f2,#fff8f8);border:1.5px solid var(--mismatch-bdr);border-radius:var(--r);margin:12px 0;box-shadow:var(--shadow-sm)">
+  <i class="bi bi-exclamation-triangle-fill" style="color:var(--mismatch);font-size:1rem;flex-shrink:0"></i>
+  <div style="flex:1;font-size:0.8rem">
+    <strong style="color:var(--mismatch)">{{ mismatch_count }} mismatch{{ 'es' if mismatch_count>1 else '' }}
+      detected</strong>
+    — classify as <strong>Document Issue (Rally)</strong> or <strong>Model Issue (GitLab)</strong>. AI Assist will
+    suggest on click.
+  </div>
+  <div style="display:flex;gap:5px;flex-shrink:0">
+    <span class="badge badge-rally"><i class="bi bi-bookmark-fill"></i> Doc Issue → Rally</span>
+    <span class="badge badge-gitlab"><i class="bi bi-bug-fill"></i> Model Issue → GitLab</span>
+  </div>
+</div>
+{% endif %}
+
+<!-- FILTERS -->
+<div class="filter-panel" style="margin-bottom:14px">
+  <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+    <div class="filter-group" style="min-width:160px">
+      <label>Comparison Status</label>
+      <select id="filter-status" onchange="filterBoth()">
+        <option value="All">All</option>
+        <option value="Match">Match Only</option>
+        <option value="Mismatch">Mismatch Only</option>
+      </select>
+    </div>
+    <div class="filter-group" style="min-width:140px">
+      <label>Category</label>
+      <select id="filter-category" onchange="filterBoth()">
+        <option value="">All Categories</option>
+        <option value="group_details">Group Details</option>
+        <option value="agent_details">Agent Details</option>
+        <option value="plan_details">Plan Details</option>
+      </select>
+    </div>
+    <div class="filter-group" style="min-width:130px">
+      <label>Plan</label>
+      <select id="filter-plan" onchange="filterBoth()">
+        <option value="">All Plans</option>
+        {% for p in plans %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+        <option value="N/A">N/A</option>
+      </select>
+    </div>
+    <div class="filter-group" style="min-width:80px">
+      <label>Per Page</label>
+      <select id="per-page-sel" onchange="changePerPage(this.value)">
+        <option value="5">5</option>
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="999">All</option>
+      </select>
+    </div>
+    <div class="filter-actions" style="align-self:end">
+      <button class="btn btn-outline btn-sm" onclick="resetFilters()">Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXTRACTION TABLE -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      <div class="card-icon"><i class="bi bi-table"></i></div>
+      Document Extractions
+      <span id="showing-label"
+        style="background:rgba(255,255,255,0.15);border-radius:10px;padding:2px 8px;font-size:0.7rem;font-family:'IBM Plex Mono',monospace">{{
+        rows|length }} results</span>
+    </div>
+    <span style="font-size:0.7rem;color:rgba(255,255,255,0.45)"><i class="bi bi-stars"></i> AI assist on classify · <i
+        class="bi bi-flag"></i> Click Classify on mismatch rows</span>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table" id="extractions-table" style="min-width:900px">
+      <thead>
+        <tr>
+          <th style="width:115px">Category</th>
+          <th style="min-width:190px">Data Element</th>
+          <th style="min-width:140px">Document Value</th>
+          <th style="min-width:140px">SumApp Value</th>
+          <th style="min-width:140px">EnterCalc Value</th>
+          <th style="width:80px">Plan</th>
+          <th style="width:100px">Comparison</th>
+          <th style="width:160px">Classification</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        {% set is_mismatch = row.comparison == 'Mismatch' %}
+        {% set cls = row.classified %}
+        <tr id="row-{{ row.idx }}" data-comparison="{{ row.comparison }}" data-category="{{ row.category }}"
+          data-plan="{{ row.plan }}"
+          class="{% if is_mismatch and not cls %}row-mismatch{% elif cls and cls.type=='true_negative' %}row-classified-rally{% elif cls and cls.type=='false_negative' %}row-classified-gitlab{% endif %}">
+          <td>
+            <span
+              style="font-size:0.7rem;font-weight:700;padding:2px 7px;border-radius:4px;
+              background:{% if row.category=='group_details' %}#eff6ff{% elif row.category=='agent_details' %}#f0fdf4{% elif row.category=='plan_details' %}#faf5ff{% else %}var(--surface-3){% endif %};
+              color:{% if row.category=='group_details' %}#1d4ed8{% elif row.category=='agent_details' %}#166534{% elif row.category=='plan_details' %}#7c3aed{% else %}var(--text-2){% endif %}">
+              {{ row.category.replace('_',' ').title() }}
+            </span>
+          </td>
+          <td><span class="mono fw-600" style="color:var(--navy-mid);font-size:0.79rem">{{ row.data_element }}</span>
+          </td>
+          <td><span class="mono text-sm {% if is_mismatch %}fw-600{% endif %}"
+              style="{% if is_mismatch %}color:var(--navy){% else %}color:var(--text-2){% endif %}">{{ row.doc_value if
+              row.doc_value!='N/A' else '—' }}</span></td>
+          <td><span class="mono text-sm"
+              style="color:{% if is_mismatch and row.sumapp_value!=row.doc_value %}var(--mismatch){% else %}var(--text-2){% endif %}">{{
+              row.sumapp_value if row.sumapp_value!='N/A' else '<span class="badge badge-na">N/A</span>'|safe }}</span>
+          </td>
+          <td><span class="mono text-sm"
+              style="color:{% if is_mismatch and row.entercalc_value!=row.doc_value %}var(--mismatch){% else %}var(--text-2){% endif %}">{{
+              row.entercalc_value if row.entercalc_value!='N/A' else '<span class="badge badge-na">N/A</span>'|safe
+              }}</span></td>
+          <td><span class="badge badge-na" style="font-size:0.65rem">{{ row.plan }}</span></td>
+          <td>
+            {% if row.comparison=='Match' %}<span class="badge badge-match"><i class="bi bi-check-circle-fill"></i>
+              Match</span>
+            {% elif row.comparison=='Mismatch' %}<span class="badge badge-mismatch"><i class="bi bi-x-circle-fill"></i>
+              Mismatch</span>
+            {% else %}<span class="badge badge-na">N/A</span>{% endif %}
+          </td>
+          <td id="actions-{{ row.idx }}">
+            {% if cls %}
+            {% set turl = 'https://rally.company.com/stories/'+cls.ticket_id if cls.type=='true_negative' else
+            'https://gitlab.company.com/issues/'+cls.ticket_id %}
+            <a href="{{ turl }}" target="_blank"
+              class="ticket-chip {% if cls.type=='true_negative' %}rally{% else %}gitlab{% endif %}">
+              {% if cls.type=='true_negative' %}📋{% else %}🐛{% endif %}
+              {{ cls.ticket_id }} <i class="bi bi-box-arrow-up-right" style="font-size:0.58rem"></i>
+            </a>
+            {% if cls.ticket_status and cls.ticket_status!='Open' %}
+            <div style="margin-top:2px"><span
+                class="badge {% if cls.ticket_status=='Resolved' %}badge-resolved{% elif cls.ticket_status=='In Progress' %}badge-inprogress{% else %}badge-pending{% endif %}"
+                style="font-size:0.62rem">{{ cls.ticket_status }}</span></div>
+            {% endif %}
+            {% elif is_mismatch %}
+            <button class="btn btn-sm"
+              onclick="openClassify({{ row.idx }},'{{ row.data_element }}','Doc: {{ row.doc_value }} | SumApp: {{ row.sumapp_value }}','{{ record.incident_id }}','{{ row.doc_value|replace("'","") }}'
+              ,'{{ row.sumapp_value|replace("'","") }}','{{ record.doc_name }}')"
+              style="background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border:1px solid #fcd34d;font-size:0.71rem;padding:3px 9px;white-space:nowrap">
+              <i class="bi bi-stars"></i> Classify
+            </button>
+            {% else %}
+            <span style="color:var(--text-3);font-size:0.7rem">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="pagination" id="detail-pagination">
+    <span id="pg-info">Showing {{ rows|length }} results</span>
+    <div class="pg-btns" id="pg-btns"></div>
+  </div>
+</div>
+
+<!-- CLASSIFICATION SUMMARY -->
+<div id="classification-summary" style="display:none;margin-top:14px">
+  <div class="card">
+    <div class="card-header" style="background:var(--navy-mid)">
+      <div class="card-title">
+        <div class="card-icon"><i class="bi bi-journal-check"></i></div>Classification Summary
+      </div>
+    </div>
+    <div style="padding:14px 18px;display:grid;grid-template-columns:1fr 1fr;gap:10px" id="summary-grid"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const INCIDENT_ID = "{{ record.incident_id }}";
+  const DOC_NAME = "{{ record.doc_name }}";
+  let allRows = Array.from(document.querySelectorAll('#extractions-table tbody tr'));
+  let visibleRows = [...allRows];
+  let currentPage = 1, perPage = 10;
+
+  function filterBoth() {
+    const status = document.getElementById('filter-status').value;
+    const category = document.getElementById('filter-category').value;
+    const plan = document.getElementById('filter-plan').value;
+    visibleRows = allRows.filter(r => {
+      const statusOk = status === 'All' || r.dataset.comparison === status;
+      const categoryOk = !category || r.dataset.category === category;
+      const planOk = !plan || r.dataset.plan === plan;
+      return statusOk && categoryOk && planOk;
+    });
+    currentPage = 1; renderPage();
+  }
+
+  function resetFilters() {
+    document.getElementById('filter-status').value = 'All';
+    document.getElementById('filter-category').value = '';
+    document.getElementById('filter-plan').value = '';
+    visibleRows = [...allRows]; currentPage = 1; renderPage();
+  }
+
+  function changePerPage(v) { perPage = parseInt(v); currentPage = 1; renderPage(); }
+
+  function renderPage() {
+    const total = Math.max(1, Math.ceil(visibleRows.length / perPage));
+    currentPage = Math.max(1, Math.min(currentPage, total));
+    const start = (currentPage - 1) * perPage, end = start + perPage;
+    allRows.forEach(r => r.style.display = 'none');
+    visibleRows.forEach((r, i) => r.style.display = (i >= start && i < end) ? '' : 'none');
+    document.getElementById('pg-info').textContent = `Showing ${Math.min(end, visibleRows.length)} of ${visibleRows.length} results`;
+    document.getElementById('showing-label').textContent = `${visibleRows.length} / {{ rows|length }} results`;
+    const btns = document.getElementById('pg-btns');
+    btns.innerHTML = '';
+    const mk = (lbl, pg, dis, act) => {
+      const b = document.createElement(dis || act ? 'span' : 'a');
+      b.className = `pg-btn${act ? ' active' : ''}${dis ? ' disabled' : ''}`;
+      b.innerHTML = lbl;
+      if (!dis && !act) b.onclick = () => { currentPage = pg; renderPage(); };
+      return b;
+    };
+    btns.appendChild(mk('<i class="bi bi-chevron-double-left"></i>', 1, currentPage <= 1, false));
+    btns.appendChild(mk('<i class="bi bi-chevron-left"></i>', currentPage - 1, currentPage <= 1, false));
+    for (let p = 1; p <= total; p++) if (Math.abs(p - currentPage) <= 2) btns.appendChild(mk(p, p, false, p === currentPage));
+    btns.appendChild(mk('<i class="bi bi-chevron-right"></i>', currentPage + 1, currentPage >= total, false));
+    btns.appendChild(mk('<i class="bi bi-chevron-double-right"></i>', total, currentPage >= total, false));
+  }
+  renderPage();
+
+  function updateRowClassified(idx, type, ticketId, system, ticketUrl) {
+    const row = document.getElementById(`row-${idx}`);
+    if (row) row.className = type === 'true_negative' ? 'row-classified-rally' : 'row-classified-gitlab';
+    const ac = document.getElementById(`actions-${idx}`);
+    if (ac) {
+      const cls = type === 'true_negative' ? 'rally' : 'gitlab';
+      const ico = type === 'true_negative' ? '📋' : '🐛';
+      ac.innerHTML = `<a href="${ticketUrl}" target="_blank" class="ticket-chip ${cls}">${ico} ${ticketId} <i class="bi bi-box-arrow-up-right" style="font-size:0.58rem"></i></a>`;
+    }
+    const cv = document.getElementById('classified-count-val');
+    if (cv) { cv.textContent = parseInt(cv.textContent || 0) + 1; cv.style.color = 'var(--teal)'; setTimeout(() => cv.style.color = 'var(--rally)', 800); }
+    appendToSummary(idx, type, ticketId, system, ticketUrl);
+  }
+
+  function appendToSummary(idx, type, ticketId, system, ticketUrl) {
+    document.getElementById('classification-summary').style.display = 'block';
+    const g = document.getElementById('summary-grid');
+    const isR = type === 'true_negative';
+    const d = document.createElement('div');
+    d.style.cssText = `padding:10px;border-radius:var(--r);border:1px solid ${isR ? '#fcd34d' : '#fca5a5'};background:${isR ? 'var(--rally-bg)' : 'var(--gitlab-bg)'}`;
+    d.innerHTML = `<div style="display:flex;align-items:center;gap:7px;margin-bottom:5px"><span>${isR ? '📋' : '🐛'}</span><span style="font-size:0.77rem;font-weight:700;color:${isR ? 'var(--rally)' : 'var(--gitlab)'}">${isR ? 'Document Issue' : 'Model Issue'}</span><a href="${ticketUrl}" target="_blank" class="ticket-chip ${isR ? 'rally' : 'gitlab'}" style="margin-left:auto">${ticketId}</a></div><div style="font-size:0.7rem;color:var(--text-2);font-family:'IBM Plex Mono',monospace">${isR ? 'Assigned to Rally — awaiting sprint planning' : 'Submitted to GitLab — awaiting triage'}</div>`;
+    g.appendChild(d);
+  }
+
+  /* View Related Files */
+  function viewFile(fileType) {
+    const fileNames = {
+      'promptfile': 'Promptfile.json',
+      'mapping_doc': 'mapping_doc.csv',
+      'rtf_doc': '{{ record.doc_name }}.rtf',
+      'system_mapping': 'system_mapping_doc.csv'
+    };
+    const fileName = fileNames[fileType];
+    document.getElementById('file-viewer-title').textContent = fileName;
+
+    // Mock file content based on type
+    let content = '';
+    if (fileType === 'promptfile') {
+      content = `<span class="dv-key">{</span>
+  <span class="dv-key">"document_type"</span>: <span class="dv-str">"{{ record.doc_name }}"</span>,
+  <span class="dv-key">"subdocument"</span>: <span class="dv-str">"{{ record.sub_doc_name|default('N/A') }}"</span>,
+  <span class="dv-key">"prompt_version"</span>: <span class="dv-str">"v2.1.0"</span>,
+  <span class="dv-key">"system_prompt"</span>: <span class="dv-str">"Extract all key information from the document..."</span>,
+  <span class="dv-key">"extraction_fields"</span>: <span class="dv-key">[</span>
+    <span class="dv-str">"group_number"</span>, <span class="dv-str">"effective_date"</span>, <span class="dv-str">"premium"</span>
+  <span class="dv-key">]</span>,
+  <span class="dv-key">"validation_rules"</span>: <span class="dv-key">{</span>
+    <span class="dv-key">"required_fields"</span>: <span class="dv-key">[</span><span class="dv-str">"group_number"</span><span class="dv-key">]</span>
+  <span class="dv-key">}</span>
+<span class="dv-key">}</span>`;
+    } else if (fileType === 'mapping_doc' || fileType === 'system_mapping') {
+      content = `<pre style="color:var(--text);font-size:0.75rem;line-height:1.6">Source Field,Target Field,Transform,Required
+group_number,GroupNumber,uppercase,true
+effective_date,EffectiveDate,date_format,true
+total_premium,TotalPremium,currency,true
+plan_name,PlanName,trim,false
+agent_name,AgentName,trim,false</pre>`;
+    } else if (fileType === 'rtf_doc') {
+      content = `<pre style="color:var(--text);font-size:0.75rem;line-height:1.6">╔═══════════════════════════════════════════════════════════╗
+║                  {{ record.doc_name }}                     ║
+╚═══════════════════════════════════════════════════════════╝
+
+Group Number: {{ record.group_number }}
+Group Name: {{ record.group_name }}
+Effective Date: 06/01/2026
+Market Segment: {{ record.market_segment }}
+Contract Type: {{ record.contract_type }}
+
+This is a mock preview of the RTF document content.
+The actual document would contain detailed information
+about the validation rules and document structure.</pre>`;
+    }
+
+    document.getElementById('file-viewer-content').innerHTML = content;
+    document.getElementById('fileViewerModal').classList.add('open');
+  }
+</script>
+
+<!-- FILE VIEWER MODAL -->
+<div class="modal-backdrop" id="fileViewerModal">
+  <div class="modal-box" style="max-width:900px">
+    <div class="modal-header">
+      <div class="modal-title"><i class="bi bi-file-earmark-text"></i> <span id="file-viewer-title">File Viewer</span>
+      </div>
+      <button class="modal-close"
+        onclick="document.getElementById('fileViewerModal').classList.remove('open')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="doc-viewer" id="file-viewer-content" style="max-height:500px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost"
+        onclick="document.getElementById('fileViewerModal').classList.remove('open')">Close</button>
+      <button class="btn btn-outline btn-sm"><i class="bi bi-download"></i> Download</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

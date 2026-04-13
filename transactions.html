@@ -1,0 +1,515 @@
+{% extends "base.html" %}
+{% set active_nav = "tx" %}
+{% set step = 1 %}
+{% block title %}SumApp Transactions{% endblock %}
+
+{% block head %}
+<style>
+  .status-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px
+  }
+
+  .date-range-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 12px 18px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+    flex-wrap: wrap
+  }
+
+  .date-range-bar label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.4px
+  }
+
+  .date-range-bar input[type=date] {
+    height: 32px;
+    padding: 0 9px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--r);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.8rem;
+    color: var(--text);
+    background: var(--surface);
+    outline: none
+  }
+
+  .date-range-bar input[type=date]:focus {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px var(--teal-glow)
+  }
+
+  .preset-btn {
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.12s
+  }
+
+  .preset-btn:hover,
+  .preset-btn.active {
+    background: var(--teal);
+    color: var(--navy);
+    border-color: var(--teal)
+  }
+
+  .status-card {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    text-align: center;
+    transition: transform 0.15s, box-shadow 0.15s;
+    cursor: pointer
+  }
+
+  .status-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow)
+  }
+
+  .status-card .sc-val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1.8rem;
+    font-weight: 500;
+    line-height: 1
+  }
+
+  .status-card .sc-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-3);
+    margin-top: 4px
+  }
+
+  .status-card .sc-sub {
+    font-size: 0.68rem;
+    color: var(--text-3);
+    margin-top: 2px
+  }
+
+  /* doc viewer modal */
+  .doc-viewer {
+    background: #1e1e2e;
+    border-radius: var(--r);
+    padding: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    color: #a9b1d6;
+    line-height: 1.7;
+    max-height: 320px;
+    overflow-y: auto
+  }
+
+  .doc-viewer .dv-key {
+    color: #7dcfff
+  }
+
+  .doc-viewer .dv-val {
+    color: #9ece6a
+  }
+
+  .doc-viewer .dv-str {
+    color: #e0af68
+  }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+<div class="breadcrumb-bar">
+  <a href="/dashboard"><i class="bi bi-house-fill"></i> Dashboard</a>
+  <span class="sep">/</span>
+  <span class="current">SumApp Transactions</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">SumApp Transactions</h1>
+    <div class="page-subtitle">Select transactions and click <strong>Validate Selected</strong></div>
+  </div>
+  <div class="flex gap-6">
+    {% if request.args.get('from_incident') %}
+    <a href="/validations/{{ request.args.get('from_incident') }}" class="btn btn-outline btn-sm"
+      title="Return to Validation Detail"><i class="bi bi-eye-fill"></i> Inspect Details</a>
+    {% endif %}
+    <button class="btn btn-outline btn-sm" onclick="selectAll()"><i class="bi bi-check2-square"></i> Select All</button>
+    <button class="btn btn-validate" id="btn-validate" onclick="validateSelected()" disabled>
+      <i class="bi bi-play-circle-fill"></i> Validate Selected
+      <span id="sel-count"
+        style="background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 7px;font-size:0.7rem">0</span>
+    </button>
+  </div>
+</div>
+
+<!-- STATUS CARDS -->
+<div class="status-cards">
+  <div class="status-card" onclick="setStatusFilter('')" style="border-top:3px solid var(--teal)">
+    <div class="sc-val" style="color:var(--navy)">{{ total_count }}</div>
+    <div class="sc-label">Total Transactions</div>
+    <div class="sc-sub">All records</div>
+  </div>
+  <div class="status-card" onclick="setStatusFilter('validated')" style="border-top:3px solid var(--match)">
+    <div class="sc-val" style="color:var(--match)">{{ validated_count }}</div>
+    <div class="sc-label">Validated</div>
+    <div class="sc-sub">{{ "%.0f"|format(validated_count/total_count*100 if total_count else 0) }}% complete</div>
+  </div>
+  <div class="status-card" onclick="setStatusFilter('pending')" style="border-top:3px solid var(--rally)">
+    <div class="sc-val" style="color:var(--rally)">{{ pending_count }}</div>
+    <div class="sc-label">Pending</div>
+    <div class="sc-sub">Awaiting validation</div>
+  </div>
+</div>
+
+<!-- DATE RANGE FILTER -->
+<form method="GET" action="/transactions" id="date-form">
+  <div class="date-range-bar">
+    <i class="bi bi-calendar3" style="color:var(--teal);font-size:1rem"></i>
+    <label>Date Range</label>
+    <input type="date" name="from_date" id="dr-from" value="{{ from_date }}">
+    <span style="color:var(--text-3);font-size:0.8rem">to</span>
+    <input type="date" name="to_date" id="dr-to" value="{{ to_date }}">
+    <div style="display:flex;gap:5px;margin-left:4px">
+      <button type="button" class="preset-btn" onclick="setPreset(0)">Today</button>
+      <button type="button" class="preset-btn" onclick="setPreset(7)">7d</button>
+      <button type="button" class="preset-btn" onclick="setPreset(30)">30d</button>
+      <button type="button" class="preset-btn active" onclick="setPreset(60)">60d</button>
+      <button type="button" class="preset-btn" onclick="setPreset(90)">90d</button>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm" style="margin-left:4px"><i class="bi bi-arrow-clockwise"></i>
+      Apply</button>
+    <div style="margin-left:auto;font-size:0.75rem;color:var(--text-3)">
+      Showing <strong style="color:var(--text-2)">{{ from_date }}</strong> — <strong style="color:var(--text-2)">{{
+        to_date }}</strong>
+    </div>
+  </div>
+</form>
+
+<!-- FILTERS -->
+<div class="filter-panel">
+  <form method="GET" action="/transactions" id="filter-form">
+    <div class="filter-grid">
+      <div class="filter-group">
+        <label>Document Name</label>
+        <select name="doc_filter" id="f-doc">
+          <option value="">All Documents</option>
+          {% for d in ['AgentAcknowledgment','SG Renewal Letter','Group Information Report','ACA Renewal
+          Census','Enrollment Summary','Composite Rates','Coverage Summary','Premium Notice','Benefit Summary'] %}
+          <option value="{{ d }}" {% if doc_filter==d %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Market Segment</label>
+        <select name="market_segment" id="f-mkt">
+          <option value="">All Segments</option>
+          <option value="Large Group" {% if market_segment=='Large Group' %}selected{% endif %}>Large Group</option>
+          <option value="Small Group" {% if market_segment=='Small Group' %}selected{% endif %}>Small Group</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Validation Status</label>
+        <select name="status_filter" id="f-status">
+          <option value="">All</option>
+          <option value="pending" {% if status_filter=='pending' %}selected{% endif %}>Pending Only</option>
+          <option value="validated" {% if status_filter=='validated' %}selected{% endif %}>Validated Only</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Per Page</label>
+        <select name="per_page" id="f-per">
+          <option value="10" {% if per_page==10 %}selected{% endif %}>10</option>
+          <option value="25" {% if per_page==25 %}selected{% endif %}>25</option>
+          <option value="50" {% if per_page==50 %}selected{% endif %}>50</option>
+        </select>
+      </div>
+      <div class="filter-actions" style="align-self:end">
+        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search"></i> Apply</button>
+        <a href="/transactions" class="btn btn-ghost btn-sm" onclick="sessionStorage.removeItem('tx_filters')">×
+          Clear</a>
+      </div>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:7px;align-items:center">
+      <label
+        style="font-size:0.7rem;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">Search</label>
+      <input name="q" id="f-q" value="{{ q }}" placeholder="Case ID · Group · UUID · Document Name"
+        style="flex:1;height:32px;padding:0 11px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.8rem;font-family:'IBM Plex Sans',sans-serif;color:var(--text);background:var(--surface);outline:none"
+        onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border)'">
+    </div>
+  </form>
+</div>
+
+<!-- SELECTION BANNER -->
+<div id="selection-banner"
+  style="display:none;background:linear-gradient(135deg,#e0f2fe,#f0fdf4);border:1px solid var(--teal);border-radius:var(--r);padding:9px 14px;margin-bottom:12px;align-items:center;gap:9px;font-size:0.8rem">
+  <i class="bi bi-info-circle-fill" style="color:var(--teal)"></i>
+  <strong id="banner-count">0</strong> transaction(s) selected — click <strong>Validate Selected</strong>
+</div>
+
+<!-- TABLE (wider) -->
+<div class="card" style="overflow:visible">
+  <div class="card-header">
+    <div class="card-title">
+      <div class="card-icon"><i class="bi bi-table"></i></div>
+      Transactions
+      <span
+        style="background:rgba(255,255,255,0.15);border-radius:10px;padding:2px 8px;font-size:0.7rem;font-family:'IBM Plex Mono',monospace">{{
+        rows|length }} / {{ all_count }}</span>
+    </div>
+    <span style="font-size:0.72rem;color:rgba(255,255,255,0.45)"><i class="bi bi-cursor-fill"></i> Hover to validate
+      inline · click 👁 to view document</span>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table" style="min-width:1600px">
+      <thead>
+        <tr>
+          <th style="width:36px"><input type="checkbox" class="row-cb" id="cb-all" onchange="toggleAll(this)"></th>
+          <th>Transaction UUID</th>
+          <th>Case ID</th>
+          <th>Group No.</th>
+          <th>Document Name</th>
+          <th>Subdocument</th>
+          <th>Application</th>
+          <th>Type</th>
+          <th>Payload</th>
+          <th>Market Seg.</th>
+          <th>Grp Type</th>
+          <th>Contract</th>
+          <th>Rate Type</th>
+          <th>Census Tiers</th>
+          <th>Request Time</th>
+          <th>Status</th>
+          <th style="width:180px">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in rows %}
+        <tr id="tx-{{ tx.id }}" onmouseenter="rowHover(this)" onmouseleave="rowLeave(this)">
+          <td><input type="checkbox" class="row-cb tx-cb" data-id="{{ tx.id }}" onchange="onCheck()"></td>
+          <td>
+            <span class="mono text-xs"
+              style="color:var(--text-2);max-width:210px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+              title="{{ tx.uuid }}">{{ tx.uuid }}</span>
+          </td>
+          <td><span class="fw-600" style="color:var(--navy-mid);font-size:0.79rem">{{ tx.case_id }}</span></td>
+          <td><span class="mono text-sm">{{ tx.group_number }}</span></td>
+          <td style="font-size:0.79rem;white-space:nowrap">{{ tx.doc_name }}</td>
+          <td><span class="badge badge-na" style="font-size:0.68rem">{{ tx.sub_doc_name|default('N/A') }}</span></td>
+          <td>
+            <span
+              style="font-size:0.75rem;font-weight:500;padding:2px 7px;border-radius:4px;
+              background:{% if tx.application=='EnterCalc' %}#eff6ff{% elif tx.application=='SellPoint' %}#f0fdf4{% else %}var(--surface-3){% endif %};
+              color:{% if tx.application=='EnterCalc' %}#1d4ed8{% elif tx.application=='SellPoint' %}#166534{% else %}var(--text-2){% endif %}">
+              {{ tx.application }}</span>
+          </td>
+          <td><span class="badge badge-{{ tx.doc_type|lower }}">{{ tx.doc_type }}</span></td>
+          <td>
+            {% if tx.payload_type=='Document' %}<span class="badge badge-doc"><i class="bi bi-file-earmark"></i>
+              Doc</span>
+            {% elif tx.payload_type=='Response' %}<span class="badge badge-resp"><i class="bi bi-arrow-return-left"></i>
+              Resp</span>
+            {% else %}<span class="badge badge-req"><i class="bi bi-arrow-right"></i> Req</span>{% endif %}
+          </td>
+          <td>
+            <span class="badge"
+              style="background:{% if tx.market_segment=='Large Group' %}#eff6ff{% else %}#f0fdf4{% endif %};color:{% if tx.market_segment=='Large Group' %}#1d4ed8{% else %}#166534{% endif %};border:1px solid {% if tx.market_segment=='Large Group' %}#93c5fd{% else %}#86efac{% endif %}">
+              {% if tx.market_segment=='Large Group' %}LG{% else %}SG{% endif %}
+            </span>
+          </td>
+          <td><span class="badge badge-na" style="font-size:0.66rem">{{ tx.group_type }}</span></td>
+          <td><span class="badge {% if tx.contract_type=='ACA' %}badge-xml{% else %}badge-resp{% endif %}">{{
+              tx.contract_type }}</span></td>
+          <td><span class="badge badge-na" style="font-size:0.66rem;white-space:nowrap">{{ tx.rate_type }}</span></td>
+          <td><span class="badge badge-na" style="font-size:0.66rem">T{{ tx.census_tiers }}</span></td>
+          <td class="mono text-xs" style="color:var(--text-3);white-space:nowrap">{{ tx.request_time }}</td>
+          <td>
+            {% if tx.validated %}
+            <span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Validated</span>
+            {% else %}
+            <span class="badge badge-pending">Pending</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="flex gap-6" id="actions-{{ tx.id }}" style="justify-content:flex-start;min-width:160px">
+              <button class="btn btn-ghost btn-xs" title="View Document"
+                onclick="viewDocument({{ tx.id }}, '{{ tx.doc_name }}', '{{ tx.doc_type }}')"><i
+                  class="bi bi-eye"></i></button>
+              <button class="btn btn-ghost btn-xs" title="Download"><i class="bi bi-download"></i></button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="pagination">
+    <span>Showing {{ rows|length }} of {{ all_count }} (page {{ page }}/{{ total_pages }})</span>
+    <div class="pg-btns">
+      <a class="pg-btn {% if page<=1 %}disabled{% endif %}"
+        href="?q={{ q }}&doc_filter={{ doc_filter }}&status_filter={{ status_filter }}&market_segment={{ market_segment }}&per_page={{ per_page }}&page=1"><i
+          class="bi bi-chevron-double-left"></i></a>
+      <a class="pg-btn {% if page<=1 %}disabled{% endif %}"
+        href="?q={{ q }}&doc_filter={{ doc_filter }}&status_filter={{ status_filter }}&market_segment={{ market_segment }}&per_page={{ per_page }}&page={{ page-1 }}"><i
+          class="bi bi-chevron-left"></i></a>
+      {% for p in range(1,total_pages+1) %}{% if (p-page)|abs<=2 %} {% if p==page %}<span class="pg-btn active">{{ p
+        }}</span>
+        {% else %}<a class="pg-btn"
+          href="?q={{ q }}&doc_filter={{ doc_filter }}&status_filter={{ status_filter }}&market_segment={{ market_segment }}&per_page={{ per_page }}&page={{ p }}">{{
+          p }}</a>{% endif %}
+        {% endif %}{% endfor %}
+        <a class="pg-btn {% if page>=total_pages %}disabled{% endif %}"
+          href="?q={{ q }}&doc_filter={{ doc_filter }}&status_filter={{ status_filter }}&market_segment={{ market_segment }}&per_page={{ per_page }}&page={{ page+1 }}"><i
+            class="bi bi-chevron-right"></i></a>
+        <a class="pg-btn {% if page>=total_pages %}disabled{% endif %}"
+          href="?q={{ q }}&doc_filter={{ doc_filter }}&status_filter={{ status_filter }}&market_segment={{ market_segment }}&per_page={{ per_page }}&page={{ total_pages }}"><i
+            class="bi bi-chevron-double-right"></i></a>
+    </div>
+  </div>
+</div>
+
+<!-- DOCUMENT VIEWER MODAL -->
+<div class="modal-backdrop" id="docViewerModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="bi bi-file-earmark-text-fill"></i> <span id="dv-title">Document Viewer</span>
+      </div>
+      <button class="modal-close"
+        onclick="document.getElementById('docViewerModal').classList.remove('open')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap" id="dv-meta"></div>
+      <div class="doc-viewer" id="dv-content"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost"
+        onclick="document.getElementById('docViewerModal').classList.remove('open')">Close</button>
+      <button class="btn btn-outline btn-sm"><i class="bi bi-download"></i> Download</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let selectedIds = new Set();
+
+  function setStatusFilter(val) {
+    document.getElementById('f-status').value = val;
+    document.getElementById('filter-form').submit();
+  }
+
+  function onCheck() {
+    selectedIds.clear();
+    document.querySelectorAll('.tx-cb:checked').forEach(cb => selectedIds.add(parseInt(cb.dataset.id)));
+    const btn = document.getElementById('btn-validate');
+    document.getElementById('sel-count').textContent = selectedIds.size;
+    document.getElementById('banner-count').textContent = selectedIds.size;
+    document.getElementById('selection-banner').style.display = selectedIds.size > 0 ? 'flex' : 'none';
+    btn.disabled = selectedIds.size === 0;
+    document.querySelectorAll('.tx-cb').forEach(cb => {
+      document.getElementById(`tx-${cb.dataset.id}`)?.classList.toggle('selected', cb.checked);
+    });
+  }
+  function toggleAll(m) { document.querySelectorAll('.tx-cb').forEach(c => c.checked = m.checked); onCheck(); }
+  function selectAll() { document.querySelectorAll('.tx-cb').forEach(c => c.checked = true); document.getElementById('cb-all').checked = true; onCheck(); }
+
+  function rowHover(row) {
+    const id = row.id.replace('tx-', '');
+    const ac = document.getElementById(`actions-${id}`);
+    if (ac && !ac.querySelector('.btn-val-inline')) {
+      const b = document.createElement('button');
+      b.className = 'btn btn-teal btn-xs btn-val-inline';
+      b.innerHTML = '<i class="bi bi-play-fill"></i> Validate';
+      b.onclick = e => { e.stopPropagation(); triggerValidation([parseInt(id)]); };
+      ac.prepend(b);
+    }
+  }
+  function rowLeave(row) { row.querySelector('.btn-val-inline')?.remove(); }
+
+  async function validateSelected() { if (selectedIds.size) triggerValidation(Array.from(selectedIds)); }
+  async function triggerValidation(ids) {
+    const btn = document.getElementById('btn-validate');
+    btn.innerHTML = '<i class="bi bi-arrow-repeat spin-icon"></i> Validating…'; btn.disabled = true;
+    const res = await fetch('/api/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) });
+    const d = await res.json();
+    if (d.status === 'success') { showToast(d.message, 'success'); setTimeout(() => window.location.href = d.redirect, 1400); }
+    else { showToast('Validation failed.', 'error'); btn.innerHTML = '<i class="bi bi-play-circle-fill"></i> Validate Selected'; btn.disabled = false; }
+  }
+
+  /* Document Viewer */
+  function viewDocument(id, docName, docType) {
+    document.getElementById('dv-title').textContent = docName;
+    document.getElementById('dv-meta').innerHTML = `
+    <span class="badge badge-${docType.toLowerCase()}">${docType}</span>
+    <span class="badge badge-na">Mock Preview</span>
+    <span style="font-size:0.72rem;color:var(--text-3);margin-left:auto">Transaction #${id}</span>
+  `;
+    const content = generateMockDoc(docName, docType);
+    document.getElementById('dv-content').innerHTML = content;
+    document.getElementById('docViewerModal').classList.add('open');
+  }
+  function generateMockDoc(name, type) {
+    if (type === 'JSON' || type === 'XML') {
+      return `<span class="dv-key">{</span>\n  <span class="dv-key">"documentType"</span>: <span class="dv-str">"${name}"</span>,\n  <span class="dv-key">"groupNumber"</span>: <span class="dv-str">"EB23+"</span>,\n  <span class="dv-key">"effectiveDate"</span>: <span class="dv-str">"06/01/2026"</span>,\n  <span class="dv-key">"totalPremium"</span>: <span class="dv-val">4820.00</span>,\n  <span class="dv-key">"primaryAgent"</span>: <span class="dv-str">"AgentTester001 Automation"</span>,\n  <span class="dv-key">"planName"</span>: <span class="dv-str">"Blue Select HMO 750/3250"</span>,\n  <span class="dv-key">"marketSegment"</span>: <span class="dv-str">"Large Group"</span>,\n  <span class="dv-key">"censusTiers"</span>: <span class="dv-val">2</span>\n<span class="dv-key">}</span>`;
+    }
+    return `<span style="color:#9ece6a">== ${name} ==</span>\n<span style="color:#a9b1d6">Group Number  : EB23+\nEffective Date: 06/01/2026\nTotal Premium : $4,820.00\nAgent Name    : AgentTester001 Automation\nPlan Name     : Blue Select HMO 750/3250\nMarket Seg.   : Large Group\nCensus Tiers  : 2\nContract Type : ACA</span>`;
+  }
+
+  /* Date presets */
+  function setPreset(days) {
+    const to = new Date();
+    const from = new Date();
+    if (days === 0) {
+      const fmt = d => d.toISOString().split('T')[0];
+      document.getElementById('dr-from').value = fmt(to);
+      document.getElementById('dr-to').value = fmt(to);
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.textContent === 'Today'));
+    } else {
+      from.setDate(from.getDate() - days);
+      const fmt = d => d.toISOString().split('T')[0];
+      document.getElementById('dr-from').value = fmt(from);
+      document.getElementById('dr-to').value = fmt(to);
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.textContent === days + 'd'));
+    }
+    document.getElementById('date-form').submit();
+  }
+
+  /* Filter persistence */
+  window.addEventListener('DOMContentLoaded', () => {
+    if (!window.location.search) {
+      const saved = sessionStorage.getItem('tx_filters');
+      if (saved) { const p = JSON.parse(saved); const qs = new URLSearchParams(p).toString(); if (qs) window.location.search = qs; }
+    }
+  });
+  document.getElementById('filter-form').addEventListener('submit', () => {
+    sessionStorage.setItem('tx_filters', JSON.stringify({ q: document.getElementById('f-q').value, doc_filter: document.getElementById('f-doc').value, status_filter: document.getElementById('f-status').value, market_segment: document.getElementById('f-mkt').value, per_page: document.getElementById('f-per').value }));
+  });
+</script>
+<style>
+  .spin {
+    animation: spin-anim 1s linear infinite;
+    display: inline-block
+  }
+</style>
+{% endblock %}

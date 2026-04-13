@@ -1,0 +1,1096 @@
+{% extends "base.html" %}
+{% set active_nav = "dash" %}
+{% set step = 0 %}
+{% block title %}Dashboard{% endblock %}
+
+{% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  .dash-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+    gap: 12px;
+    margin-bottom: 18px
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 16px 18px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.18s, transform 0.18s;
+    cursor: default
+  }
+
+  .kpi-card:hover {
+    box-shadow: var(--shadow);
+    transform: translateY(-1px)
+  }
+
+  .kpi-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: 0 0 var(--r-lg) var(--r-lg)
+  }
+
+  .kpi-card.c-teal::after {
+    background: var(--teal)
+  }
+
+  .kpi-card.c-green::after {
+    background: var(--match)
+  }
+
+  .kpi-card.c-red::after {
+    background: var(--mismatch)
+  }
+
+  .kpi-card.c-amber::after {
+    background: var(--rally)
+  }
+
+  .kpi-card.c-blue::after {
+    background: var(--accent)
+  }
+
+  .kpi-card.c-purple::after {
+    background: #7c3aed
+  }
+
+  .kpi-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    margin-bottom: 8px
+  }
+
+  .kpi-val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1.9rem;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--navy)
+  }
+
+  .kpi-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-3);
+    margin-top: 4px
+  }
+
+  .kpi-sub {
+    font-size: 0.7rem;
+    color: var(--text-3);
+    margin-top: 3px
+  }
+
+  .dash-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px
+  }
+
+  .dash-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px
+  }
+
+  @media(max-width:1100px) {
+    .dash-grid-2 {
+      grid-template-columns: 1fr
+    }
+
+    .dash-grid-3 {
+      grid-template-columns: 1fr 1fr
+    }
+  }
+
+  @media(max-width:700px) {
+    .dash-grid-3 {
+      grid-template-columns: 1fr
+    }
+  }
+
+  .chart-container {
+    position: relative;
+    padding: 16px 18px
+  }
+
+  .section-title {
+    font-family: 'IBM Plex Serif', serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 12px
+  }
+
+  .ticket-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--surface-3);
+    font-size: 0.8rem;
+    transition: background 0.1s
+  }
+
+  .ticket-row:last-child {
+    border-bottom: none
+  }
+
+  .ticket-row:hover {
+    background: #f0f7ff
+  }
+
+  .date-range-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 12px 18px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+    flex-wrap: wrap
+  }
+
+  .date-range-bar label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.4px
+  }
+
+  .date-range-bar input[type=date] {
+    height: 32px;
+    padding: 0 9px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--r);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.8rem;
+    color: var(--text);
+    background: var(--surface);
+    outline: none
+  }
+
+  .date-range-bar input[type=date]:focus {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px var(--teal-glow)
+  }
+
+  .preset-btn {
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.12s
+  }
+
+  .preset-btn:hover,
+  .preset-btn.active {
+    background: var(--teal);
+    color: var(--navy);
+    border-color: var(--teal)
+  }
+
+  .welcome-banner {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 60%, var(--navy-light) 100%);
+    border-radius: var(--r-lg);
+    padding: 22px 28px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden
+  }
+
+  .welcome-banner::before {
+    content: '';
+    position: absolute;
+    top: -40px;
+    right: -40px;
+    width: 180px;
+    height: 180px;
+    background: rgba(0, 168, 180, 0.07);
+    border-radius: 50%
+  }
+
+  .welcome-text h2 {
+    font-family: 'IBM Plex Serif', serif;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 5px
+  }
+
+  .welcome-text p {
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.65);
+    max-width: 500px;
+    line-height: 1.6
+  }
+
+  .welcome-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1
+  }
+
+  .card-header-light {
+    background: rgba(13, 52, 96, 0.08) !important;
+    border-bottom: 1px solid var(--border)
+  }
+
+  .card-header-light .card-title {
+    color: var(--navy) !important
+  }
+
+  .card-header-light .card-icon {
+    background: rgba(0, 168, 180, 0.15) !important;
+    color: var(--teal) !important
+  }
+
+  .quick-actions-compact {
+    padding: 10px 16px !important
+  }
+
+  .quick-actions-compact .card-title {
+    font-size: 0.8rem !important
+  }
+
+  /* AI ASSISTANT PANEL */
+  .ai-qa-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm)
+  }
+
+  .ai-messages {
+    height: 240px;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px
+  }
+
+  .ai-msg {
+    max-width: 90%;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    line-height: 1.5
+  }
+
+  .ai-msg.user {
+    background: var(--navy);
+    color: #fff;
+    align-self: flex-end;
+    border-radius: 8px 8px 0 8px
+  }
+
+  .ai-msg.bot {
+    background: var(--surface-2);
+    color: var(--text);
+    align-self: flex-start;
+    border-radius: 8px 8px 8px 0;
+    border: 1px solid var(--border)
+  }
+
+  .ai-input-row {
+    display: flex;
+    gap: 7px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--surface-2)
+  }
+
+  .ai-input {
+    flex: 1;
+    height: 32px;
+    padding: 0 10px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--r);
+    font-size: 0.8rem;
+    outline: none;
+    font-family: 'IBM Plex Sans', sans-serif
+  }
+
+  .ai-input:focus {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px var(--teal-glow)
+  }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+<div class="breadcrumb-bar" style="display:flex;justify-content:space-between;align-items:center">
+  <div style="display:flex;align-items:center;gap:8px">
+    <i class="bi bi-house-fill" style="color:var(--teal-dim)"></i>
+    <span class="sep">/</span>
+    <span class="current">Dashboard</span>
+  </div>
+  <a href="/transactions"
+    style="display:inline-flex;align-items:center;gap:6px;background:#3a5068;color:#fff;padding:6px 14px;border-radius:5px;text-decoration:none;font-size:0.8rem;font-weight:500;transition:all 0.2s"
+    onmouseover="this.style.background='#2d3f52'" onmouseout="this.style.background='#3a5068'">
+    <i class="bi bi-play-circle-fill" style="font-size:0.85rem"></i> Start Validating
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- DATE RANGE BAR -->
+<form method="GET" action="/dashboard" id="date-form">
+  <div class="date-range-bar">
+    <i class="bi bi-calendar3" style="color:var(--teal);font-size:1rem"></i>
+    <label>Date Range</label>
+    <input type="date" name="from_date" id="dr-from" value="{{ from_date }}">
+    <span style="color:var(--text-3);font-size:0.8rem">to</span>
+    <input type="date" name="to_date" id="dr-to" value="{{ to_date }}">
+    <div style="display:flex;gap:5px;margin-left:4px">
+      <button type="button" class="preset-btn" onclick="setPreset(0)">Today</button>
+      <button type="button" class="preset-btn" onclick="setPreset(7)">7d</button>
+      <button type="button" class="preset-btn" onclick="setPreset(30)">30d</button>
+      <button type="button" class="preset-btn active" onclick="setPreset(60)">60d</button>
+      <button type="button" class="preset-btn" onclick="setPreset(90)">90d</button>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm" style="margin-left:4px"><i class="bi bi-arrow-clockwise"></i>
+      Apply</button>
+    <div style="margin-left:auto;font-size:0.75rem;color:var(--text-3)">
+      Showing <strong style="color:var(--text-2)">{{ from_date }}</strong> — <strong style="color:var(--text-2)">{{
+        to_date }}</strong>
+    </div>
+  </div>
+</form>
+
+<!-- KPI CARDS -->
+<div class="dash-kpi-grid">
+  <!-- Total Transactions with % Pending -->
+  <div class="kpi-card c-teal">
+    <div class="kpi-icon" style="background:var(--teal-glow);color:var(--teal)"><i class="bi bi-receipt-cutoff"></i>
+    </div>
+    <div class="kpi-val">{{ stats.pending_tx + stats.validated_tx }}</div>
+    <div class="kpi-label">Total Txn</div>
+    <div class="kpi-sub">
+      {% if stats.aging_tx > 0 %}
+      <span style="color:var(--mismatch);font-weight:600">{{ ((stats.pending_tx / (stats.pending_tx +
+        stats.validated_tx)) * 100)|round(1) if (stats.pending_tx + stats.validated_tx) > 0 else 0 }}% pending · {{
+        stats.aging_tx }} aging >5d</span>
+      {% else %}
+      <span style="color:var(--warn);font-weight:700">{{ ((stats.pending_tx / (stats.pending_tx + stats.validated_tx)) *
+        100)|round(1) if (stats.pending_tx + stats.validated_tx) > 0 else 0 }}% pending</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="kpi-card c-red">
+    <div class="kpi-icon" style="background:var(--mismatch-bg);color:var(--mismatch)"><i
+        class="bi bi-exclamation-triangle-fill"></i></div>
+    <div class="kpi-val" style="color:var(--mismatch)">{{ stats.mismatch_count }}</div>
+    <div class="kpi-label">Mismatches</div>
+    <div class="kpi-sub">
+      {% if stats.mismatch_vs_prior > 0 %}
+      <span style="color:var(--mismatch);font-weight:600"><i class="bi bi-arrow-up" style="font-size:0.65rem"></i> {{
+        stats.mismatch_vs_prior }} vs prior {{ stats.period_label }}</span>
+      {% elif stats.mismatch_vs_prior < 0 %} <span style="color:var(--match);font-weight:600"><i
+          class="bi bi-arrow-down" style="font-size:0.65rem"></i> {{ stats.mismatch_vs_prior|abs }} vs prior {{
+        stats.period_label }}</span>
+        {% else %}
+        <span style="color:var(--text-3)">No change vs prior {{ stats.period_label }}</span>
+        {% endif %}
+    </div>
+  </div>
+  <div class="kpi-card c-green">
+    <div class="kpi-icon" style="background:var(--match-bg);color:var(--match)"><i class="bi bi-percent"></i></div>
+    <div class="kpi-val" style="color:var(--match)">{{ stats.avg_match_rate }}%</div>
+    <div class="kpi-label">Avg Match Rate</div>
+    <div class="kpi-sub">
+      {% if stats.avg_match_vs_prior > 0 %}
+      <span style="color:var(--match);font-weight:600"><i class="bi bi-arrow-up" style="font-size:0.65rem"></i> from {{
+        (stats.avg_match_rate - stats.avg_match_vs_prior)|round(1) }}% prior</span>
+      {% elif stats.avg_match_vs_prior < 0 %} <span style="color:var(--mismatch);font-weight:600"><i
+          class="bi bi-arrow-down" style="font-size:0.65rem"></i> from {{ (stats.avg_match_rate -
+        stats.avg_match_vs_prior)|round(1) }}% prior</span>
+        {% else %}
+        <span style="color:var(--text-3)">Across all validations</span>
+        {% endif %}
+    </div>
+  </div>
+  <!-- Avg Time to Validate -->
+  <div class="kpi-card c-blue">
+    <div class="kpi-icon" style="background:#e0f2fe;color:#0284c7"><i class="bi bi-clock-history"></i>
+    </div>
+    <div class="kpi-val" style="color:#0284c7">{{ stats.avg_time_to_validate }}d</div>
+    <div class="kpi-label">Avg Time to Validate</div>
+    <div class="kpi-sub">
+      {% if stats.avg_time_vs_prior < 0 %} <span style="color:var(--match);font-weight:600"><i class="bi bi-arrow-down"
+          style="font-size:0.65rem"></i> {{ stats.avg_time_vs_prior|abs }}d vs prior {{ stats.period_label }}</span>
+        {% elif stats.avg_time_vs_prior > 0 %}
+        <span style="color:var(--mismatch);font-weight:600"><i class="bi bi-arrow-up" style="font-size:0.65rem"></i> {{
+          stats.avg_time_vs_prior }}d vs prior {{ stats.period_label }}</span>
+        {% else %}
+        <span style="color:var(--text-3)">Average processing time</span>
+        {% endif %}
+    </div>
+  </div>
+  <!-- Elements Affected -->
+  <div class="kpi-card c-purple">
+    <div class="kpi-icon" style="background:#ede9fe;color:#7c3aed"><i class="bi bi-layers-fill"></i>
+    </div>
+    <div class="kpi-val" style="color:#7c3aed">{{ stats.elements_affected }}</div>
+    <div class="kpi-label">Elements Affected</div>
+    <div class="kpi-sub">across {{ stats.mismatch_count_for_elements }} mismatches</div>
+  </div>
+</div>
+
+<!-- QUICK ACTIONS - Vertical Sidebar with Horizontal Content -->
+<div style="display:flex;gap:16px;margin-bottom:16px">
+  <div
+    style="display:flex;align-items:center;padding:10px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r)">
+    <i class="bi bi-lightning-charge-fill" style="color:var(--teal);font-size:1.1rem"></i>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+    {% set actions = [
+    ('/transactions','bi-table','#eff6ff','var(--accent)','Browse Transactions', stats.pending_tx|string ~ ' pending'),
+    ('/validations?status=Mismatch','bi-exclamation-triangle','var(--mismatch-bg)','var(--mismatch)','View Mismatches',
+    stats.mismatch_count|string ~ ' open'),
+    ('/validations','bi-shield-check','var(--teal-glow)','var(--teal)','All Validations', stats.total_validations|string
+    ~ ' records'),
+    ('/mismatch-analysis','bi-bar-chart-line','var(--warn-bg)','var(--warn)','Mismatch Analysis','Deep dive'),
+    ('/api/export/validations','bi-download','var(--match-bg)','var(--match)','Export CSV','Full log'),
+    ] %}
+    {% for href, icon, bg, col, label, sub in actions %}
+    <a href="{{ href }}"
+      style="display:flex;align-items:center;gap:11px;padding:11px 14px;background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--r);text-decoration:none;color:var(--text);font-size:0.8rem;font-weight:600;transition:all 0.15s"
+      onmouseover="this.style.borderColor='var(--teal)';this.style.background='var(--teal-glow)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface-2)'">
+      <div
+        style="width:32px;height:32px;border-radius:8px;background:{{ bg }};color:{{ col }};display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">
+        <i class="bi {{ icon }}"></i>
+      </div>
+      <div>
+        <div>{{ label }}</div>
+        <div style="font-size:0.68rem;color:var(--text-3);font-weight:400;margin-top:2px">{{ sub }}</div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ROW 1: Trend Chart + Document Chart -->
+<div class="dash-grid-2">
+
+  <!-- Time Trend Chart -->
+  <div class="card">
+    <div class="card-header card-header-light">
+      <div class="card-title">
+        <div class="card-icon"><i class="bi bi-graph-up"></i></div>Time Trend
+      </div>
+      <span style="font-size:0.72rem;color:var(--text-3)">Total, Validated, and Pending over time</span>
+    </div>
+    <div class="chart-container" style="height:280px">
+      <canvas id="trendChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Document Type Health -->
+  <div class="card">
+    <div class="card-header card-header-light">
+      <div class="card-title">
+        <div class="card-icon"><i class="bi bi-heart-pulse-fill"></i></div>Document type health
+      </div>
+      <span style="font-size:0.72rem;color:var(--text-3)">Pass rate · volume · 30d trend</span>
+    </div>
+    <div style="padding:0">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);background:var(--surface-2)">
+            <th
+              style="padding:10px 16px;text-align:left;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-3)">
+              Document Type</th>
+            <th
+              style="padding:10px 16px;text-align:left;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-3)">
+              Pass Rate</th>
+            <th
+              style="padding:10px 16px;text-align:center;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-3)">
+              Volume</th>
+            <th
+              style="padding:10px 16px;text-align:center;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-3)">
+              Trend</th>
+            <th
+              style="padding:10px 16px;text-align:left;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-3)">
+              Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for doc in doc_health %}
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:12px 16px;font-size:0.85rem;font-weight:500;color:var(--text)">{{ doc.doc_name }}</td>
+            <td style="padding:12px 16px">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div
+                  style="flex:1;max-width:120px;height:8px;background:var(--surface-3);border-radius:4px;overflow:hidden">
+                  <div
+                    style="height:100%;background:{% if doc.pass_rate >= 90 %}#10b981{% elif doc.pass_rate >= 60 %}#f59e0b{% else %}#ef4444{% endif %};width:{{ doc.pass_rate }}%;transition:width 0.3s">
+                  </div>
+                </div>
+                <span style="font-size:0.85rem;font-weight:600;color:var(--text);min-width:45px">{{ doc.pass_rate
+                  }}%</span>
+              </div>
+            </td>
+            <td style="padding:12px 16px;text-align:center;font-size:0.85rem;font-weight:500;color:var(--text)">{{
+              doc.volume }}</td>
+            <td style="padding:12px 16px;text-align:center;font-size:1.1rem">
+              {% if doc.trend == 'up' %}
+              <i class="bi bi-arrow-up" style="color:#10b981"></i>
+              {% elif doc.trend == 'down' %}
+              <i class="bi bi-arrow-down" style="color:#ef4444"></i>
+              {% else %}
+              <span style="color:var(--text-3)">—</span>
+              {% endif %}
+            </td>
+            <td style="padding:12px 16px">
+              <span class="badge" style="font-size:0.7rem;padding:4px 10px;border-radius:12px;font-weight:600;
+                {% if doc.status == 'Healthy' %}background:#d1fae5;color:#065f46;border:1px solid #6ee7b7
+                {% elif doc.status == 'Review' %}background:#fef3c7;color:#92400e;border:1px solid #fcd34d
+                {% else %}background:#fee2e2;color:#991b1b;border:1px solid #fca5a5{% endif %}">
+                {{ doc.status }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- ROW 2: TN vs FN Bar + Open Tickets Summary + AI Assistant -->
+<div class="dash-grid-3">
+
+  <!-- True Negative vs False Negative Chart -->
+  <!-- Classification & Ticket Breakdown -->
+  <div class="card">
+    <div class="card-header card-header-light" style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div class="card-title">
+          <div class="card-icon"><i class="bi bi-pie-chart-fill"></i></div>Classification & Ticket Breakdown
+        </div>
+        <span style="font-size:0.72rem;color:var(--text-3)">Type, tracker, open/closed tickets</span>
+      </div>
+      <button class="btn btn-xs" style="color:var(--text-2);border-color:var(--border);background:var(--surface)"
+        onclick="syncTickets()">
+        <i class="bi bi-arrow-repeat"></i> Sync
+      </button>
+    </div>
+    <div style="padding:0">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);background:var(--surface-2)">
+            <th
+              style="padding:10px 16px;text-align:left;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-3)">
+              Type</th>
+            <th
+              style="padding:10px 16px;text-align:left;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-3)">
+              Tracker</th>
+            <th
+              style="padding:10px 16px;text-align:left;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-3)">
+              Open / Closed Tickets</th>
+            <th
+              style="padding:10px 16px;text-align:center;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-3)">
+              Open</th>
+            <th
+              style="padding:10px 16px;text-align:center;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-3)">
+              Closed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Document Issue → Rally -->
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:14px 16px">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:12px;height:12px;border-radius:50%;background:#f59e0b"></div>
+                <span style="font-size:0.85rem;font-weight:500;color:var(--text)">Document Issue</span>
+              </div>
+            </td>
+            <td style="padding:14px 16px">
+              <span class="badge"
+                style="font-size:0.7rem;padding:4px 10px;border-radius:12px;font-weight:600;background:#fef3c7;color:#92400e;border:1px solid #fcd34d">Rally</span>
+            </td>
+            <td style="padding:14px 16px">
+              <div style="display:flex;gap:4px;align-items:center">
+                <div
+                  style="flex:1;height:8px;background:var(--surface-3);border-radius:4px;overflow:hidden;display:flex">
+                  <div
+                    style="width:{{ (stats.rally_open / (stats.rally_open + stats.rally_closed) * 100) if (stats.rally_open + stats.rally_closed) > 0 else 0 }}%;background:#f59e0b;height:100%">
+                  </div>
+                  <div
+                    style="width:{{ (stats.rally_closed / (stats.rally_open + stats.rally_closed) * 100) if (stats.rally_open + stats.rally_closed) > 0 else 0 }}%;background:#10b981;height:100%">
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td style="padding:14px 16px;text-align:center">
+              <span style="font-size:1.2rem;font-weight:600;color:#f59e0b;font-family:'IBM Plex Mono',monospace">{{
+                stats.rally_open }}</span>
+              <div style="font-size:0.65rem;color:var(--text-3);margin-top:2px">open</div>
+            </td>
+            <td style="padding:14px 16px;text-align:center">
+              <span style="font-size:1.2rem;font-weight:600;color:#10b981;font-family:'IBM Plex Mono',monospace">{{
+                stats.rally_closed }}</span>
+              <div style="font-size:0.65rem;color:var(--text-3);margin-top:2px">closed</div>
+            </td>
+          </tr>
+          <!-- Model Issue → GitLab -->
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:14px 16px">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:12px;height:12px;border-radius:50%;background:#ef4444"></div>
+                <span style="font-size:0.85rem;font-weight:500;color:var(--text)">Model Issue</span>
+              </div>
+            </td>
+            <td style="padding:14px 16px">
+              <span class="badge"
+                style="font-size:0.7rem;padding:4px 10px;border-radius:12px;font-weight:600;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5">GitLab</span>
+            </td>
+            <td style="padding:14px 16px">
+              <div style="display:flex;gap:4px;align-items:center">
+                <div
+                  style="flex:1;height:8px;background:var(--surface-3);border-radius:4px;overflow:hidden;display:flex">
+                  <div
+                    style="width:{{ (stats.gitlab_open / (stats.gitlab_open + stats.gitlab_closed) * 100) if (stats.gitlab_open + stats.gitlab_closed) > 0 else 0 }}%;background:#ef4444;height:100%">
+                  </div>
+                  <div
+                    style="width:{{ (stats.gitlab_closed / (stats.gitlab_open + stats.gitlab_closed) * 100) if (stats.gitlab_open + stats.gitlab_closed) > 0 else 0 }}%;background:#10b981;height:100%">
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td style="padding:14px 16px;text-align:center">
+              <span style="font-size:1.2rem;font-weight:600;color:#ef4444;font-family:'IBM Plex Mono',monospace">{{
+                stats.gitlab_open }}</span>
+              <div style="font-size:0.65rem;color:var(--text-3);margin-top:2px">open</div>
+            </td>
+            <td style="padding:14px 16px;text-align:center">
+              <span style="font-size:1.2rem;font-weight:600;color:#10b981;font-family:'IBM Plex Mono',monospace">{{
+                stats.gitlab_closed }}</span>
+              <div style="font-size:0.65rem;color:var(--text-3);margin-top:2px">closed</div>
+            </td>
+          </tr>
+          <!-- Unclassified -->
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:14px 16px">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:12px;height:12px;border-radius:50%;background:#9ca3af"></div>
+                <span style="font-size:0.85rem;font-weight:500;color:var(--text)">Unclassified</span>
+              </div>
+            </td>
+            <td style="padding:14px 16px">
+              <span style="font-size:0.85rem;color:var(--text-3);font-weight:500">—</span>
+            </td>
+            <td style="padding:14px 16px">
+              <div style="display:flex;gap:4px;align-items:center">
+                <div
+                  style="flex:1;height:8px;background:var(--surface-3);border-radius:4px;overflow:hidden;display:flex">
+                  <div
+                    style="width:{{ (stats.unclassified_open / (stats.unclassified_open + stats.unclassified_closed) * 100) if (stats.unclassified_open + stats.unclassified_closed) > 0 else 0 }}%;background:#9ca3af;height:100%">
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td style="padding:14px 16px;text-align:center">
+              <span style="font-size:1.2rem;font-weight:600;color:#9ca3af;font-family:'IBM Plex Mono',monospace">{{
+                stats.unclassified_open }}</span>
+              <div style="font-size:0.65rem;color:var(--text-3);margin-top:2px">open</div>
+            </td>
+            <td style="padding:14px 16px;text-align:center">
+              <span style="font-size:1.2rem;font-weight:600;color:#10b981;font-family:'IBM Plex Mono',monospace">{{
+                stats.unclassified_closed }}</span>
+              <div style="font-size:0.65rem;color:var(--text-3);margin-top:2px">closed</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div
+        style="padding:12px 16px;border-top:1px solid var(--border);background:var(--surface-2);display:flex;gap:20px;flex-wrap:wrap;font-size:0.7rem;color:var(--text-3)">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:10px;height:10px;border-radius:50%;background:#f59e0b"></div>
+          <span>Document Issue → Rally</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:10px;height:10px;border-radius:50%;background:#ef4444"></div>
+          <span>Model Issue → GitLab</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:10px;height:10px;border-radius:50%;background:#9ca3af"></div>
+          <span>Unclassified</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+          <div style="width:10px;height:10px;border-radius:2px;background:#f59e0b"></div>
+          <span>Open</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:10px;height:10px;border-radius:2px;background:#10b981"></div>
+          <span>Closed</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pending Age Distribution -->
+  <div class="card">
+    <div class="card-header card-header-light">
+      <div class="card-title">
+        <div class="card-icon"><i class="bi bi-hourglass-split"></i></div>Pending age distribution
+      </div>
+      <span style="font-size:0.72rem;color:var(--text-3)">
+        <span style="font-weight:600;color:var(--text)">{{ pending_age.total_pending }}</span> transactions awaiting
+        validation
+      </span>
+    </div>
+    <div style="padding:16px">
+      <!-- < 1 day -->
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:0.8rem;font-weight:500;color:var(--text)">
+            < 1 day</span>
+              <span style="font-size:0.85rem;font-weight:600;color:var(--text);font-family:'IBM Plex Mono',monospace">{{
+                pending_age.lt_1day }}</span>
+        </div>
+        <div style="height:20px;background:var(--surface-3);border-radius:4px;overflow:hidden;position:relative">
+          <div
+            style="height:100%;background:#10b981;width:{{ (pending_age.lt_1day / pending_age.total_pending * 100) if pending_age.total_pending > 0 else 0 }}%;transition:width 0.3s;display:flex;align-items:center;justify-content:center">
+            <span style="font-size:0.7rem;font-weight:700;color:#fff;position:absolute;left:8px">{{ pending_age.lt_1day
+              }}</span>
+          </div>
+        </div>
+      </div>
+      <!-- 1-2 days -->
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:0.8rem;font-weight:500;color:var(--text)">1-2 days</span>
+          <span style="font-size:0.85rem;font-weight:600;color:var(--text);font-family:'IBM Plex Mono',monospace">{{
+            pending_age.get('1_2days', 0) }}</span>
+        </div>
+        <div style="height:20px;background:var(--surface-3);border-radius:4px;overflow:hidden;position:relative">
+          <div
+            style="height:100%;background:#84cc16;width:{{ (pending_age.get('1_2days', 0) / pending_age.total_pending * 100) if pending_age.total_pending > 0 else 0 }}%;transition:width 0.3s;display:flex;align-items:center;justify-content:center">
+            <span style="font-size:0.7rem;font-weight:700;color:#fff;position:absolute;left:8px">{{
+              pending_age.get('1_2days', 0) }}</span>
+          </div>
+        </div>
+      </div>
+      <!-- 3-5 days -->
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:0.8rem;font-weight:500;color:var(--text)">3-5 days</span>
+          <span style="font-size:0.85rem;font-weight:600;color:var(--text);font-family:'IBM Plex Mono',monospace">{{
+            pending_age.get('3_5days', 0) }}</span>
+        </div>
+        <div style="height:20px;background:var(--surface-3);border-radius:4px;overflow:hidden;position:relative">
+          <div
+            style="height:100%;background:#f59e0b;width:{{ (pending_age.get('3_5days', 0) / pending_age.total_pending * 100) if pending_age.total_pending > 0 else 0 }}%;transition:width 0.3s;display:flex;align-items:center;justify-content:center">
+            <span style="font-size:0.7rem;font-weight:700;color:#fff;position:absolute;left:8px">{{
+              pending_age.get('3_5days', 0) }}</span>
+          </div>
+        </div>
+      </div>
+      <!-- > 5 days -->
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:0.8rem;font-weight:500;color:var(--text)">> 5 days</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:0.85rem;font-weight:600;color:#ef4444;font-family:'IBM Plex Mono',monospace">{{
+              pending_age.gt_5days }}</span>
+            {% if pending_age.gt_5days > 0 %}
+            <i class="bi bi-triangle-fill" style="font-size:0.7rem;color:#ef4444"></i>
+            {% endif %}
+          </div>
+        </div>
+        <div style="height:20px;background:var(--surface-3);border-radius:4px;overflow:hidden;position:relative">
+          <div
+            style="height:100%;background:#ef4444;width:{{ (pending_age.gt_5days / pending_age.total_pending * 100) if pending_age.total_pending > 0 else 0 }}%;transition:width 0.3s;display:flex;align-items:center;justify-content:center">
+            <span style="font-size:0.7rem;font-weight:700;color:#fff;position:absolute;left:8px">{{ pending_age.gt_5days
+              }}</span>
+          </div>
+        </div>
+      </div>
+      {% if pending_age.sla_exceeded > 0 %}
+      <!-- SLA Warning -->
+      <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px;margin-top:16px">
+        <div style="font-size:0.78rem;font-weight:600;color:#991b1b;line-height:1.4">
+          {{ pending_age.sla_exceeded }} transaction{{ 's' if pending_age.sla_exceeded != 1 else '' }} exceed{{ '' if
+          pending_age.sla_exceeded != 1 else 's' }} SLA — review needed
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- AI Assistant Q&A -->
+  <div class="ai-qa-panel">
+    <div class="card-header card-header-light">
+      <div class="card-title">
+        <div class="card-icon"><i class="bi bi-stars"></i></div>AI Assistant
+      </div>
+      <span style="font-size:0.7rem;color:var(--text-3)">Ask about your validations</span>
+    </div>
+    <div class="ai-messages" id="ai-messages">
+      <div class="ai-msg bot">
+        <strong>👋 Hi!</strong> Ask me anything about your validations, mismatches, or ticket status. Try: <em>"How many
+          mismatches are there?"</em> or <em>"Show me pending transactions."</em>
+      </div>
+    </div>
+    <div class="ai-input-row">
+      <input class="ai-input" id="ai-input" type="text" placeholder="Ask about mismatches, tickets, trends…"
+        onkeydown="if(event.key==='Enter')sendAIMessage()">
+      <button class="btn btn-teal btn-sm" onclick="sendAIMessage()"><i class="bi bi-send-fill"></i></button>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* ── DATE PRESETS ─────────────────────────────── */
+  function setPreset(days) {
+    const to = new Date();
+    const from = new Date();
+    if (days === 0) {
+      // Today - set both from and to to today
+      const fmt = d => d.toISOString().split('T')[0];
+      document.getElementById('dr-from').value = fmt(to);
+      document.getElementById('dr-to').value = fmt(to);
+      document.querySelectorAll('.preset-btn').forEach(b => {
+        b.classList.toggle('active', b.textContent === 'Today');
+      });
+    } else {
+      from.setDate(from.getDate() - days);
+      const fmt = d => d.toISOString().split('T')[0];
+      document.getElementById('dr-from').value = fmt(from);
+      document.getElementById('dr-to').value = fmt(to);
+      document.querySelectorAll('.preset-btn').forEach(b => {
+        b.classList.toggle('active', b.textContent === days + 'd');
+      });
+    }
+    document.getElementById('date-form').submit();
+  }
+
+  /* ── AI ASSISTANT ─────────────────────────────── */
+  const aiMessages = document.getElementById('ai-messages');
+  async function sendAIMessage() {
+    const inp = document.getElementById('ai-input');
+    const q = inp.value.trim();
+    if (!q) return;
+    inp.value = '';
+    // User bubble
+    const uBub = document.createElement('div');
+    uBub.className = 'ai-msg user'; uBub.textContent = q;
+    aiMessages.appendChild(uBub); aiMessages.scrollTop = 9999;
+    // Loading
+    const lBub = document.createElement('div');
+    lBub.className = 'ai-msg bot'; lBub.innerHTML = '<i class="bi bi-arrow-repeat spin-icon"></i> Thinking…';
+    aiMessages.appendChild(lBub); aiMessages.scrollTop = 9999;
+    try {
+      const res = await fetch('/api/ai-qa', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q }) });
+      const d = await res.json();
+      lBub.innerHTML = markdownToHtml(d.answer);
+    } catch (e) { lBub.innerHTML = 'Sorry, I could not process that request.'; }
+    aiMessages.scrollTop = 9999;
+  }
+  function markdownToHtml(txt) {
+    return txt.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/\n/g, '<br>');
+  }
+  document.getElementById('ai-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendAIMessage(); });
+
+  /* ── CHART DATA ───────────────────────────────── */
+  const docData = {{ doc_summary | tojson }};
+  const trendData = {{ trend | tojson }};
+
+  /* Document Validation Count Chart with Success Rate on secondary axis */
+  const docLabels = docData.map(d => d.doc_name.length > 20 ? d.doc_name.slice(0, 18) + '…' : d.doc_name);
+  const docTotals = docData.map(d => d.success + d.mismatch);
+  const successRates = docData.map(d => {
+    const total = d.success + d.mismatch;
+    return total > 0 ? Math.round((d.success / total) * 100) : 0;
+  });
+  new Chart(document.getElementById('docChart'), {
+    type: 'bar',
+    data: {
+      labels: docLabels,
+      datasets: [
+        {
+          label: 'Total Validations',
+          data: docTotals,
+          backgroundColor: '#3b82f6',
+          borderColor: '#2563eb',
+          borderWidth: 1,
+          borderRadius: 3,
+          yAxisID: 'y',
+          barThickness: 25,
+          categoryPercentage: 0.8,
+          barPercentage: 0.9
+        },
+        {
+          label: 'Success Rate (%)',
+          data: successRates,
+          type: 'line',
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          borderWidth: 2,
+          pointRadius: 4,
+          pointBackgroundColor: '#10b981',
+          tension: 0.3,
+          yAxisID: 'y1'
+        },
+      ]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 8 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.dataset.label === 'Total Validations' ? `Total: ${ctx.parsed.x}` : `Success: ${ctx.parsed.x}%`
+          }
+        }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          max: Math.max(...docTotals) + Math.ceil(Math.max(...docTotals) * 0.2),
+          grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: { font: { size: 10 }, stepSize: 1 },
+          title: { display: true, text: 'Count', font: { size: 9 } }
+        },
+        y: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y1: { position: 'top', min: 0, max: 100, grid: { display: false }, ticks: { font: { size: 10 }, callback: v => v + '%' }, title: { display: true, text: 'Success Rate (%)', font: { size: 9 } } }
+      }
+    }
+  });
+
+  /* Time Trend Chart — three lines for Total, Validated, Pending */
+  const trendLabels = trendData.map(([d]) => d.slice(5));
+  const trendSuccess = trendData.map(([, v]) => v.success);
+  const trendMismatch = trendData.map(([, v]) => v.mismatch);
+  const trendValidated = trendData.map(([, v]) => v.success + v.mismatch);
+  const trendPending = trendData.map(([, v]) => v.pending);
+  const trendTotal = trendData.map(([, v]) => v.success + v.mismatch + v.pending);
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: trendLabels,
+      datasets: [
+        {
+          label: 'Total',
+          data: trendTotal,
+          borderColor: '#6366f1',
+          backgroundColor: 'rgba(99, 102, 241, 0.1)',
+          borderWidth: 2.5,
+          pointRadius: 4,
+          pointBackgroundColor: '#6366f1',
+          tension: 0.3,
+          fill: false
+        },
+        {
+          label: 'Validated (Success + Mismatch)',
+          data: trendValidated,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          borderWidth: 2.5,
+          pointRadius: 4,
+          pointBackgroundColor: '#10b981',
+          tension: 0.3,
+          fill: false
+        },
+        {
+          label: 'Pending',
+          data: trendPending,
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245, 158, 11, 0.1)',
+          borderWidth: 2.5,
+          pointRadius: 4,
+          pointBackgroundColor: '#f59e0b',
+          tension: 0.3,
+          fill: false
+        },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 10 } },
+        tooltip: {
+          mode: 'index',
+          intersect: false
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 10 } }, title: { display: true, text: 'Count', font: { size: 9 } } }
+      },
+      interaction: {
+        mode: 'nearest',
+        axis: 'x',
+        intersect: false
+      }
+    }
+  });
+
+  /* Classification Breakdown */
+  const docIssue = {{ stats.total_doc_issue }};
+  const modelIssue = {{ stats.total_model_issue }};
+  const unclassified = Math.max(0, {{ stats.mismatch_count }}-docIssue - modelIssue);
+  new Chart(document.getElementById('classChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Document Issue (Rally)', 'Model Issue (GitLab)', 'Unclassified'],
+      datasets: [{
+        data: [docIssue || 0, modelIssue || 0, unclassified || {{ stats.mismatch_count }}],
+      backgroundColor: ['rgba(217,119,6,0.8)', 'rgba(226,67,41,0.8)', 'rgba(106,132,154,0.5)'],
+      borderColor: ['#d97706', '#e24329', '#c8d3e1'],
+      borderWidth: 2, hoverOffset: 4
+    }]
+  },
+    options: {
+    responsive: true, maintainAspectRatio: false, cutout: '62%',
+    plugins: {
+      legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 8 } },
+      tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed / (docIssue + modelIssue + unclassified || 1) * 100)}%)` } }
+    }
+  }
+});
+</script>
+{% endblock %}

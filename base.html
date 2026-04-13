@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}DocValidator{% endblock %} — FL Blue</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Serif:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    :root {
+      --navy:#062040; --navy-mid:#0d3460; --navy-light:#1a4a7a;
+      --teal:#00a8b4; --teal-dim:#007d87; --teal-glow:rgba(0,168,180,0.12);
+      --surface:#ffffff; --surface-2:#f7f9fc; --surface-3:#eef2f7;
+      --border:#dce3ed; --border-mid:#c8d3e1;
+      --text:#0d1d2e; --text-2:#3a5068; --text-3:#6a849a;
+      --match:#0d7a3e; --match-bg:#e8f7ef; --match-bdr:#86efac;
+      --mismatch:#b91c1c; --mismatch-bg:#fef2f2; --mismatch-bdr:#fca5a5;
+      --warn:#92400e; --warn-bg:#fffbeb; --warn-bdr:#fcd34d;
+      --accent:#0052cc; --rally:#d97706; --rally-bg:#fffbeb;
+      --gitlab:#e24329; --gitlab-bg:#fff5f5;
+      --shadow-sm:0 1px 3px rgba(6,32,64,0.08),0 1px 2px rgba(6,32,64,0.04);
+      --shadow:0 4px 12px rgba(6,32,64,0.10),0 2px 4px rgba(6,32,64,0.06);
+      --shadow-lg:0 16px 40px rgba(6,32,64,0.14),0 4px 8px rgba(6,32,64,0.06);
+      --r:6px; --r-lg:10px;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'IBM Plex Sans',sans-serif;background:var(--surface-2);color:var(--text);font-size:13.5px;line-height:1.55;min-height:100vh}
+
+    /* TOPBAR */
+    .topbar{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 20px;position:sticky;top:0;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
+    .topbar-logo{font-family:'IBM Plex Serif',serif;font-size:1.05rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:9px;text-decoration:none}
+    .topbar-logo .logo-dot{width:27px;height:27px;background:var(--teal);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:0.82rem;color:var(--navy)}
+    .topbar-sep{width:1px;height:20px;background:rgba(255,255,255,0.15);margin:0 16px}
+    .topbar-nav{display:flex;gap:2px}
+    .topbar-nav a{color:rgba(255,255,255,0.65);text-decoration:none;font-size:0.79rem;font-weight:500;padding:5px 12px;border-radius:5px;transition:all 0.15s;display:flex;align-items:center;gap:5px}
+    .topbar-nav a:hover{background:rgba(255,255,255,0.08);color:#fff}
+    .topbar-nav a.active{background:var(--teal);color:var(--navy);font-weight:600}
+    .topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+    .topbar-user{display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.75);font-size:0.79rem}
+    .avatar{width:28px;height:28px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:var(--navy)}
+
+    /* BREADCRUMB */
+    .breadcrumb-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:9px 24px;display:flex;align-items:center;gap:6px;font-size:0.79rem;color:var(--text-3)}
+    .breadcrumb-bar a{color:var(--teal-dim);text-decoration:none;font-weight:500}
+    .breadcrumb-bar a:hover{color:var(--teal)}
+    .breadcrumb-bar .sep{color:var(--border-mid)}
+    .breadcrumb-bar .current{color:var(--text-2);font-weight:600}
+
+    /* STEP FLOW */
+    .step-flow{display:flex;align-items:center;padding:12px 24px;background:var(--navy);border-bottom:2px solid var(--teal)}
+    .step-item{display:flex;align-items:center;gap:7px;padding:0 14px}
+    .step-item:first-child{padding-left:0}
+    .step-num{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);font-size:0.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.15);flex-shrink:0}
+    .step-item.active .step-num{background:var(--teal);color:var(--navy);border-color:var(--teal)}
+    .step-item.done .step-num{background:rgba(0,168,180,0.2);color:var(--teal);border-color:rgba(0,168,180,0.4)}
+    .step-label{font-size:0.75rem;color:rgba(255,255,255,0.45);font-weight:500}
+    .step-item.active .step-label{color:#fff;font-weight:600}
+    .step-item.done .step-label{color:var(--teal)}
+    .step-arrow{color:rgba(255,255,255,0.2);font-size:0.72rem;margin:0 3px}
+
+    /* MAIN */
+    .main{padding:20px 24px;max-width:1700px;margin:0 auto}
+
+    /* PAGE HEADER */
+    .page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
+    .page-title{font-family:'IBM Plex Serif',serif;font-size:1.4rem;font-weight:700;color:var(--navy);line-height:1.2}
+    .page-subtitle{font-size:0.79rem;color:var(--text-3);margin-top:4px}
+
+    /* FILTER PANEL */
+    .filter-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 18px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+    .filter-panel-header{display:flex;align-items:center;gap:7px;font-size:0.79rem;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:12px}
+    .filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;align-items:end}
+    .filter-group label{display:block;font-size:0.7rem;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+    .filter-group input,.filter-group select{width:100%;height:33px;padding:0 9px;border:1.5px solid var(--border);border-radius:var(--r);font-family:'IBM Plex Sans',sans-serif;font-size:0.8rem;color:var(--text);background:var(--surface);outline:none;transition:border-color 0.15s,box-shadow 0.15s}
+    .filter-group input:focus,.filter-group select:focus{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-glow)}
+    .filter-actions{display:flex;gap:7px}
+
+    /* BUTTONS */
+    .btn{display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Sans',sans-serif;font-size:0.8rem;font-weight:600;padding:6px 14px;border-radius:var(--r);border:1.5px solid transparent;cursor:pointer;transition:all 0.15s;text-decoration:none;white-space:nowrap;line-height:1}
+    .btn-primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+    .btn-primary:hover{background:var(--navy-mid)}
+    .btn-teal{background:var(--teal);color:var(--navy);border-color:var(--teal);font-weight:700}
+    .btn-teal:hover{background:var(--teal-dim);color:#fff}
+    .btn-outline{background:var(--surface);color:var(--text-2);border-color:var(--border-mid)}
+    .btn-outline:hover{background:var(--surface-3);border-color:var(--navy-light);color:var(--navy)}
+    .btn-ghost{background:transparent;color:var(--text-3);border-color:transparent}
+    .btn-ghost:hover{background:var(--surface-3);color:var(--text)}
+    .btn-validate{background:linear-gradient(135deg,var(--teal),var(--navy-light));color:#fff;border:none;box-shadow:0 2px 8px rgba(0,168,180,0.3)}
+    .btn-validate:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,168,180,0.4)}
+    .btn-danger{background:#fef2f2;color:var(--mismatch);border-color:var(--mismatch-bdr)}
+    .btn-danger:hover{background:var(--mismatch);color:#fff}
+    .btn-sm{padding:4px 10px;font-size:0.77rem}
+    .btn-xs{padding:2px 8px;font-size:0.7rem}
+    .btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+
+    /* CARD */
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);overflow:hidden}
+    .card-header{display:flex;align-items:center;justify-content:space-between;padding:13px 17px;background:var(--navy);color:#fff;font-size:0.83rem;font-weight:600}
+    .card-header .card-title{display:flex;align-items:center;gap:7px}
+    .card-header .card-icon{width:22px;height:22px;background:rgba(255,255,255,0.1);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:0.77rem}
+
+    /* DATA TABLE */
+    .table-wrap{overflow-x:auto}
+    table.data-table{width:100%;border-collapse:separate;border-spacing:0;font-size:0.8rem}
+    table.data-table thead th{background:#f0f4f8;color:var(--text-2);font-size:0.67rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:9px 12px;border-bottom:2px solid var(--border);white-space:nowrap;position:sticky;top:0}
+    table.data-table tbody tr{transition:background 0.1s}
+    table.data-table tbody tr:hover{background:#f0f7ff}
+    table.data-table tbody tr.selected{background:#e8f4ff}
+    table.data-table tbody td{padding:10px 12px;border-bottom:1px solid #eef1f5;vertical-align:middle;color:var(--text)}
+    table.data-table tbody tr:last-child td{border-bottom:none}
+    .mono{font-family:'IBM Plex Mono',monospace;font-size:0.76rem;color:var(--text-2)}
+
+    /* BADGES */
+    .badge{display:inline-flex;align-items:center;gap:3px;font-size:0.67rem;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap}
+    .badge-pdf{background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5}
+    .badge-xml{background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd}
+    .badge-docx{background:#f0fdf4;color:#166534;border:1px solid #86efac}
+    .badge-json{background:#faf5ff;color:#7c3aed;border:1px solid #c4b5fd}
+    .badge-doc{background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd}
+    .badge-resp{background:#f0fdf4;color:#166534;border:1px solid #86efac}
+    .badge-req{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-bdr)}
+    .badge-success{background:var(--match-bg);color:var(--match);border:1px solid var(--match-bdr)}
+    .badge-mismatch{background:var(--mismatch-bg);color:var(--mismatch);border:1px solid var(--mismatch-bdr)}
+    .badge-match{background:var(--match-bg);color:var(--match);border:1px solid var(--match-bdr)}
+    .badge-na{background:var(--surface-3);color:var(--text-3);border:1px solid var(--border)}
+    .badge-rally{background:var(--rally-bg);color:var(--rally);border:1px solid #fcd34d}
+    .badge-gitlab{background:var(--gitlab-bg);color:var(--gitlab);border:1px solid #fca5a5}
+    .badge-pending{background:#f0f9ff;color:#0369a1;border:1px solid #bae6fd}
+    .badge-resolved{background:#f0fdf4;color:#166534;border:1px solid #86efac}
+    .badge-inprogress{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
+
+    /* STAT CHIPS */
+    .stat-row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+    .stat-chip{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:9px 14px;box-shadow:var(--shadow-sm);flex:1;min-width:120px}
+    .stat-chip .stat-icon{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:0.88rem;flex-shrink:0}
+    .stat-chip .stat-val{font-family:'IBM Plex Mono',monospace;font-size:1.3rem;font-weight:500;line-height:1}
+    .stat-chip .stat-lbl{font-size:0.68rem;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:0.4px;margin-top:2px}
+
+    /* CHECKBOX */
+    .row-cb{width:15px;height:15px;accent-color:var(--teal);cursor:pointer}
+
+    /* TOAST */
+    #toast-container{position:fixed;top:60px;right:18px;z-index:9999;display:flex;flex-direction:column;gap:7px}
+    .toast{background:var(--navy);color:#fff;padding:11px 16px;border-radius:var(--r);box-shadow:var(--shadow-lg);font-size:0.81rem;display:flex;align-items:center;gap:9px;min-width:260px;animation:toast-in 0.22s ease;border-left:4px solid var(--teal)}
+    .toast.toast-error{border-left-color:var(--mismatch)}
+    .toast.toast-success{border-left-color:var(--match)}
+    @keyframes toast-in{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+    /* MODAL */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(6,32,64,0.55);backdrop-filter:blur(3px);z-index:1000;display:none;align-items:center;justify-content:center}
+    .modal-backdrop.open{display:flex}
+    .modal-box{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);width:min(740px,96vw);overflow:hidden;animation:modal-in 0.2s ease;max-height:92vh;overflow-y:auto}
+    @keyframes modal-in{from{opacity:0;transform:scale(0.95) translateY(-10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+    .modal-header{background:var(--navy);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1}
+    .modal-header .modal-title{font-family:'IBM Plex Serif',serif;font-size:0.97rem;font-weight:700;display:flex;align-items:center;gap:9px}
+    .modal-header .modal-close{background:none;border:none;color:rgba(255,255,255,0.5);font-size:1.2rem;cursor:pointer;line-height:1;transition:color 0.1s}
+    .modal-header .modal-close:hover{color:#fff}
+    .modal-body{padding:18px}
+    .modal-footer{padding:12px 18px;background:var(--surface-2);border-top:1px solid var(--border);display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}
+
+    /* FORM */
+    .form-row{display:grid;gap:12px}
+    .form-row.cols-2{grid-template-columns:1fr 1fr}
+    .form-group{display:flex;flex-direction:column;gap:4px}
+    .form-group label{font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-2)}
+    .form-group input,.form-group select,.form-group textarea{font-family:'IBM Plex Sans',sans-serif;font-size:0.82rem;padding:7px 11px;border:1.5px solid var(--border);border-radius:var(--r);color:var(--text);background:var(--surface);outline:none;transition:border-color 0.15s,box-shadow 0.15s}
+    .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-glow)}
+    .form-group textarea{resize:vertical;min-height:72px}
+
+    /* TYPE SELECTOR (renamed labels) */
+    .type-selector{display:flex;gap:9px}
+    .type-card{flex:1;border:2px solid var(--border);border-radius:var(--r);padding:13px;cursor:pointer;transition:all 0.15s;position:relative}
+    .type-card:hover{border-color:var(--teal-dim)}
+    .type-card.selected-rally{border-color:var(--rally);background:var(--rally-bg)}
+    .type-card.selected-gitlab{border-color:var(--gitlab);background:var(--gitlab-bg)}
+    .type-card input[type=radio]{position:absolute;opacity:0}
+    .type-card-icon{font-size:1.3rem;margin-bottom:5px}
+    .type-card-name{font-size:0.77rem;font-weight:700;color:var(--text-2)}
+    .type-card-desc{font-size:0.69rem;color:var(--text-3);margin-top:2px}
+
+    /* ROW HIGHLIGHTS */
+    tr.row-mismatch td{background:#fff8f8}
+    tr.row-mismatch:hover td{background:#fef2f2}
+    tr.row-classified-rally td{background:#fffdf0}
+    tr.row-classified-gitlab td{background:#fff8f8}
+
+    /* PAGINATION */
+    .pagination{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-top:1px solid var(--border);font-size:0.79rem;color:var(--text-3);background:var(--surface-2)}
+    .pg-btns{display:flex;gap:3px}
+    .pg-btn{min-width:28px;height:28px;padding:0 7px;display:flex;align-items:center;justify-content:center;border-radius:var(--r);border:1px solid var(--border);background:var(--surface);color:var(--text-2);font-size:0.75rem;cursor:pointer;transition:all 0.1s;text-decoration:none}
+    .pg-btn:hover{background:var(--surface-3);border-color:var(--teal);color:var(--teal)}
+    .pg-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+    .pg-btn.disabled{opacity:.38;pointer-events:none}
+
+    /* MATCH BAR */
+    .match-bar{height:4px;background:#e5e7eb;border-radius:20px;overflow:hidden;margin-top:3px}
+    .match-bar-fill{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--teal),#38a169)}
+
+    /* TICKET CHIP */
+    .ticket-chip{display:inline-flex;align-items:center;gap:4px;font-size:0.68rem;font-family:'IBM Plex Mono',monospace;font-weight:600;padding:2px 7px;border-radius:4px;text-decoration:none}
+    .ticket-chip.rally{background:var(--rally-bg);color:var(--rally);border:1px solid #fcd34d}
+    .ticket-chip.gitlab{background:var(--gitlab-bg);color:var(--gitlab);border:1px solid #fca5a5}
+    .ticket-chip:hover{opacity:.8;text-decoration:none}
+
+    /* AI PANEL */
+    .ai-panel{border-radius:var(--r);padding:11px 13px;margin-bottom:12px;font-size:0.8rem}
+    .ai-panel.loading{background:var(--surface-3);border:1px solid var(--border)}
+    .ai-panel.result{background:#f0fdf4;border:1.5px solid var(--match-bdr)}
+    .ai-panel.result.false-neg{background:var(--mismatch-bg);border-color:var(--mismatch-bdr)}
+    .ai-confidence{font-size:0.66rem;font-weight:700;padding:2px 6px;border-radius:10px}
+    .ai-confidence.High{background:var(--match-bg);color:var(--match)}
+    .ai-confidence.Medium{background:var(--warn-bg);color:var(--warn)}
+    .ai-confidence.Low{background:var(--mismatch-bg);color:var(--mismatch)}
+
+    /* MISC */
+    a{color:var(--teal-dim);text-decoration:none}
+    a:hover{color:var(--teal);text-decoration:underline}
+    .text-mono{font-family:'IBM Plex Mono',monospace;font-size:0.76rem}
+    .text-sm{font-size:0.77rem}.text-xs{font-size:0.7rem}.text-muted{color:var(--text-3)}
+    .fw-600{font-weight:600}.gap-6{gap:6px}.flex{display:flex;align-items:center}.mt-12{margin-top:12px}
+    @keyframes spin-anim{to{transform:rotate(360deg)}}
+    .spin-icon{animation:spin-anim 0.8s linear infinite;display:inline-block}
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<!-- TOPBAR -->
+<nav class="topbar">
+  <a href="/" class="topbar-logo">
+    <div class="logo-dot"><i class="bi bi-file-earmark-check-fill"></i></div>
+    DocValidator
+  </a>
+  <div class="topbar-sep"></div>
+  <div class="topbar-nav">
+    <a href="/dashboard" class="{% if active_nav=='dash' %}active{% endif %}">
+      <i class="bi bi-speedometer2"></i> Dashboard
+    </a>
+    <a href="/transactions" class="{% if active_nav=='tx' %}active{% endif %}">
+      <i class="bi bi-table"></i> Transactions
+    </a>
+    <a href="/validations" class="{% if active_nav=='val' %}active{% endif %}">
+      <i class="bi bi-shield-check"></i> Validations
+    </a>
+    <a href="/mismatch-analysis" class="{% if active_nav=='ma' %}active{% endif %}">
+      <i class="bi bi-bar-chart-line"></i> Mismatch Analysis
+    </a>
+  </div>
+  <div class="topbar-right">
+    <!-- SYNC BUTTON -->
+    <button id="btn-sync-tickets" class="btn btn-outline btn-sm"
+            style="color:rgba(255,255,255,0.7);border-color:rgba(255,255,255,0.2);background:rgba(255,255,255,0.07);font-size:0.75rem"
+            onclick="syncTickets()">
+      <i class="bi bi-arrow-repeat"></i> Sync Tickets
+    </button>
+    <div class="topbar-sep"></div>
+    <div class="topbar-user">
+      <div class="avatar">FLB</div>
+      FL Blue Platform
+    </div>
+  </div>
+</nav>
+
+<!-- STEP FLOW -->
+{% if step is defined and step > 0 %}
+<div class="step-flow">
+  <div class="step-item {% if step==1 %}active{% elif step>1 %}done{% endif %}">
+    <div class="step-num">{% if step>1 %}<i class="bi bi-check-lg"></i>{% else %}1{% endif %}</div>
+    <div class="step-label">Select &amp; Validate</div>
+  </div>
+  <div class="step-arrow"><i class="bi bi-chevron-right"></i></div>
+  <div class="step-item {% if step==2 %}active{% elif step>2 %}done{% endif %}">
+    <div class="step-num">{% if step>2 %}<i class="bi bi-check-lg"></i>{% else %}2{% endif %}</div>
+    <div class="step-label">Review Results</div>
+  </div>
+  <div class="step-arrow"><i class="bi bi-chevron-right"></i></div>
+  <div class="step-item {% if step==3 %}active{% elif step>3 %}done{% endif %}">
+    <div class="step-num">{% if step>3 %}<i class="bi bi-check-lg"></i>{% else %}3{% endif %}</div>
+    <div class="step-label">Inspect Details</div>
+  </div>
+  <div class="step-arrow"><i class="bi bi-chevron-right"></i></div>
+  <div class="step-item {% if step>=4 %}active{% endif %}">
+    <div class="step-num">4</div>
+    <div class="step-label">Classify &amp; Assign</div>
+  </div>
+</div>
+{% endif %}
+
+{% block breadcrumb %}{% endblock %}
+
+<div class="main">{% block content %}{% endblock %}</div>
+
+<!-- ═══════ CLASSIFY MODAL ═══════ -->
+<div class="modal-backdrop" id="classifyModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="bi bi-flag-fill"></i> Classify Mismatch</div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Context info -->
+      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r);padding:10px 13px;margin-bottom:12px;font-size:0.8rem">
+        <span class="text-muted text-xs fw-600" style="text-transform:uppercase;letter-spacing:0.5px">Mismatch Element</span>
+        <div style="margin-top:5px"><strong id="modal-element-name" class="mono">—</strong></div>
+        <div class="text-muted text-xs" id="modal-element-vals" style="margin-top:4px">—</div>
+      </div>
+
+      <!-- AI SUGGESTION PANEL -->
+      <div id="ai-panel" class="ai-panel loading">
+        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+          <i class="bi bi-stars" style="color:var(--teal);font-size:0.95rem"></i>
+          <span style="font-weight:700;font-size:0.79rem;color:var(--text-2)">AI Classification Assist</span>
+          <span id="ai-loading-badge" style="font-size:0.68rem;color:var(--text-3);font-style:italic">
+            <i class="bi bi-arrow-repeat spin-icon"></i> Analysing…
+          </span>
+          <span id="ai-confidence-badge" class="ai-confidence" style="display:none"></span>
+          <button id="ai-apply-btn" class="btn btn-teal btn-xs" style="margin-left:auto;display:none" onclick="applyAISuggestion()">
+            <i class="bi bi-check-lg"></i> Apply
+          </button>
+        </div>
+        <div id="ai-result-text" style="margin-top:7px;font-size:0.79rem;color:var(--text-2);display:none;line-height:1.5"></div>
+
+        <!-- Latest ticket for this doc + element -->
+        <div id="ai-latest-ticket" style="display:none;margin-top:9px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);font-size:0.77rem">
+          <div style="font-weight:700;color:var(--text-2);margin-bottom:4px;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.4px">
+            <i class="bi bi-clock-history" style="color:var(--teal)"></i> Latest Ticket for This Element
+          </div>
+          <div id="ai-latest-ticket-content"></div>
+        </div>
+      </div>
+
+      <!-- Similar Existing Tickets -->
+      <div id="similar-tickets-section" style="display:none;margin-bottom:12px">
+        <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-2);margin-bottom:7px">
+          <i class="bi bi-link-45deg" style="color:var(--teal)"></i> Similar Open Tickets — link instead of creating new
+        </div>
+        <div id="similar-tickets-list"></div>
+      </div>
+
+      <!-- Type Selector -->
+      <div style="margin-bottom:14px">
+        <div class="text-xs fw-600 text-muted" style="text-transform:uppercase;letter-spacing:0.5px;margin-bottom:7px">Classification Type</div>
+        <div class="type-selector">
+          <div class="type-card" id="card-rally" onclick="selectType('true_negative')">
+            <input type="radio" name="cls_type" value="true_negative">
+            <div class="type-card-icon">📋</div>
+            <div class="type-card-name" style="color:var(--rally)">Document Issue</div>
+            <div class="type-card-desc">Expected format difference — assign Rally User Story</div>
+          </div>
+          <div class="type-card" id="card-gitlab" onclick="selectType('false_negative')">
+            <input type="radio" name="cls_type" value="false_negative">
+            <div class="type-card-icon">🐛</div>
+            <div class="type-card-name" style="color:var(--gitlab)">Model Issue</div>
+            <div class="type-card-desc">Genuine data defect — raise GitLab Bug</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Fields -->
+      <div id="rally-fields" style="display:none">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;padding:7px 11px;background:var(--rally-bg);border-radius:var(--r);border:1px solid #fcd34d">
+          <span>📋</span><span style="font-size:0.79rem;font-weight:600;color:var(--rally)">Create Rally User Story (Document Issue)</span>
+        </div>
+        <div class="form-row cols-2">
+          <div class="form-group"><label>Story Title *</label><input type="text" id="rally-title" placeholder="e.g. Date format — Effective_Date"></div>
+          <div class="form-group"><label>Assign To</label>
+            <select id="rally-assignee"><option>— Unassigned —</option><option>Alice Chen</option><option>Bob Martinez</option><option>Priya Nair</option><option>David Kim</option></select>
+          </div>
+        </div>
+        <div class="form-group mt-12"><label>Description</label><textarea id="rally-desc" placeholder="Describe expected vs actual behaviour…"></textarea></div>
+        <div class="form-row cols-2 mt-12">
+          <div class="form-group"><label>Priority</label>
+            <select id="rally-priority"><option>Normal</option><option>High</option><option>Blocker</option><option>Low</option></select>
+          </div>
+          <div class="form-group"><label>Iteration</label>
+            <select id="rally-iteration"><option>Current Sprint</option><option>Next Sprint</option><option>Backlog</option></select>
+          </div>
+        </div>
+        <div class="form-row cols-2 mt-12">
+          <div class="form-group"><label>Ticket Reference <span style="color:var(--text-3);font-weight:400;text-transform:none">(optional — link existing)</span></label>
+            <input type="text" id="rally-ref" placeholder="US-XXXXX"></div>
+          <div class="form-group"><label>Ticket Status</label>
+            <select id="rally-status"><option value="Open">Open</option><option value="In Progress">In Progress</option><option value="Resolved">Resolved</option><option value="Closed">Closed</option></select>
+          </div>
+        </div>
+      </div>
+
+      <div id="gitlab-fields" style="display:none">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;padding:7px 11px;background:var(--gitlab-bg);border-radius:var(--r);border:1px solid #fca5a5">
+          <span>🐛</span><span style="font-size:0.79rem;font-weight:600;color:var(--gitlab)">Raise GitLab Bug (Model Issue)</span>
+        </div>
+        <div class="form-row cols-2">
+          <div class="form-group"><label>Bug Title *</label><input type="text" id="gitlab-title" placeholder="[DocValidator] Commission format mismatch"></div>
+          <div class="form-group"><label>Severity</label>
+            <select id="gitlab-severity"><option>Medium</option><option>Critical</option><option>High</option><option>Low</option></select>
+          </div>
+        </div>
+        <div class="form-group mt-12"><label>Steps to Reproduce</label><textarea id="gitlab-desc" placeholder="1. Run validation…&#10;2. Navigate to detail…&#10;3. Observe mismatch on…"></textarea></div>
+        <div class="form-row cols-2 mt-12">
+          <div class="form-group"><label>Assign To</label>
+            <select id="gitlab-assignee"><option>— Unassigned —</option><option>@alice.chen</option><option>@bob.martinez</option><option>@priya.nair</option><option>@david.kim</option></select>
+          </div>
+          <div class="form-group"><label>Milestone</label>
+            <select id="gitlab-milestone"><option>v2.4 — Current</option><option>v2.5 — Next</option><option>Backlog</option></select>
+          </div>
+        </div>
+        <div class="form-row cols-2 mt-12">
+          <div class="form-group"><label>Ticket Reference <span style="color:var(--text-3);font-weight:400;text-transform:none">(optional)</span></label>
+            <input type="text" id="gitlab-ref" placeholder="BUG-XXXXX"></div>
+          <div class="form-group"><label>Ticket Status</label>
+            <select id="gitlab-status"><option value="Open">Open</option><option value="In Progress">In Progress</option><option value="Resolved">Resolved</option><option value="Closed">Closed</option></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ticket confirm (post-submit) -->
+      <div id="ticket-confirm" style="display:none;margin-top:12px">
+        <div id="ticket-confirm-inner" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px">
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
+            <i class="bi bi-check-circle-fill" style="color:var(--match);font-size:1.1rem"></i>
+            <span style="font-weight:700;font-size:0.86rem;color:var(--match)">Ticket Created Successfully</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:0.79rem">
+            <div><span style="color:var(--text-3)">ID:</span> <strong id="conf-ticket-id" class="mono"></strong></div>
+            <div><span style="color:var(--text-3)">System:</span> <strong id="conf-system"></strong></div>
+            <div style="flex:1"><span style="color:var(--text-3)">URL:</span> <a id="conf-url" href="#" target="_blank" class="mono text-xs"></a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-outline btn-sm" id="btn-screenshot" style="display:none" onclick="copyScreenshot()">
+        <i class="bi bi-camera"></i> Copy Screenshot
+      </button>
+      <button class="btn btn-primary" id="btn-submit-classify" onclick="submitClassify()" disabled>
+        <i class="bi bi-send-fill"></i> Submit
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* TOAST */
+function showToast(msg,type='info'){
+  const tc=document.getElementById('toast-container');
+  const t=document.createElement('div');
+  t.className=`toast toast-${type}`;
+  const icon=type==='success'?'bi-check-circle-fill':type==='error'?'bi-x-circle-fill':'bi-info-circle-fill';
+  t.innerHTML=`<i class="bi ${icon}"></i><span>${msg}</span>`;
+  tc.appendChild(t);
+  setTimeout(()=>t.remove(),4000);
+}
+
+/* SYNC TICKETS */
+async function syncTickets(){
+  const btn=document.getElementById('btn-sync-tickets');
+  const orig=btn.innerHTML;
+  btn.innerHTML='<i class="bi bi-arrow-repeat spin-icon"></i> Syncing…';
+  btn.disabled=true;
+  try{
+    const res=await fetch('/api/sync-tickets',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const d=await res.json();
+    showToast(d.message,'success');
+  }catch(e){showToast('Sync failed','error');}
+  btn.innerHTML=orig;btn.disabled=false;
+}
+
+/* MODAL */
+let currentIdx=null,currentIncident=null,currentType=null,aiSuggestion=null,selectedRefTicket=null,currentDocName='';
+
+function openClassify(idx,elementName,vals,incidentId,docVal,sumappVal,docName){
+  currentIdx=idx;currentIncident=incidentId;currentType=null;aiSuggestion=null;selectedRefTicket=null;
+  currentDocName=docName||'';
+  document.getElementById('modal-element-name').textContent=elementName;
+  document.getElementById('modal-element-vals').textContent=vals;
+  ['rally-fields','gitlab-fields'].forEach(id=>document.getElementById(id).style.display='none');
+  ['card-rally','card-gitlab'].forEach(id=>document.getElementById(id).className='type-card');
+  document.getElementById('btn-submit-classify').disabled=true;
+  document.getElementById('btn-screenshot').style.display='none';
+  document.getElementById('ticket-confirm').style.display='none';
+  document.getElementById('btn-submit-classify').style.display='';
+  document.getElementById('btn-submit-classify').innerHTML='<i class="bi bi-send-fill"></i> Submit';
+  const ap=document.getElementById('ai-panel');
+  ap.className='ai-panel loading';
+  document.getElementById('ai-loading-badge').style.display='';
+  document.getElementById('ai-confidence-badge').style.display='none';
+  document.getElementById('ai-result-text').style.display='none';
+  document.getElementById('ai-apply-btn').style.display='none';
+  document.getElementById('ai-latest-ticket').style.display='none';
+  document.getElementById('similar-tickets-section').style.display='none';
+  document.getElementById('classifyModal').classList.add('open');
+  fetchAISuggestion(elementName,docVal||'',sumappVal||'',currentDocName);
+}
+
+async function fetchAISuggestion(element,docVal,sumappVal,docName){
+  try{
+    const res=await fetch('/api/ai-suggest',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({element,doc_value:docVal,sumapp_value:sumappVal,doc_name:docName})});
+    const data=await res.json();
+    aiSuggestion=data;
+    renderAISuggestion(data);
+  }catch(e){document.getElementById('ai-loading-badge').textContent='Unavailable';}
+}
+
+function renderAISuggestion(data){
+  const isTrue=data.suggestion==='true_negative';
+  const ap=document.getElementById('ai-panel');
+  ap.className=`ai-panel result${isTrue?'':' false-neg'}`;
+  document.getElementById('ai-loading-badge').style.display='none';
+  const cb=document.getElementById('ai-confidence-badge');
+  cb.textContent=`${data.confidence} confidence`;cb.className=`ai-confidence ${data.confidence}`;cb.style.display='';
+  const rt=document.getElementById('ai-result-text');
+  rt.style.display='';
+  const col=isTrue?'var(--rally)':'var(--gitlab)';
+  const label=isTrue?'Document Issue (Rally)':'Model Issue (GitLab)';
+  rt.innerHTML=`<div style="font-weight:700;margin-bottom:3px;color:${col}">${isTrue?'📋':'🐛'} Suggested: ${label}</div><div style="color:var(--text-2)">${data.reason}</div>`;
+  document.getElementById('ai-apply-btn').style.display='';
+
+  // Latest ticket panel
+  if(data.latest_ticket){
+    const lt=data.latest_ticket;
+    const ltEl=document.getElementById('ai-latest-ticket');
+    ltEl.style.display='';
+    const isR=lt.type==='true_negative';
+    const statusBadge=lt.ticket_status==='Open'?'badge-pending':lt.ticket_status==='Resolved'?'badge-resolved':'badge-inprogress';
+    const url=isR?`https://rally.company.com/stories/${lt.ticket_id}`:`https://gitlab.company.com/issues/${lt.ticket_id}`;
+    document.getElementById('ai-latest-ticket-content').innerHTML=`
+      <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+        <span style="color:var(--text-3);font-size:0.75rem">Already raised:</span>
+        <a href="${url}" target="_blank" class="ticket-chip ${isR?'rally':'gitlab'}">${isR?'📋':'🐛'} ${lt.ticket_id}</a>
+        <span class="badge ${statusBadge}">${lt.ticket_status||'Open'}</span>
+        <span style="color:var(--text-3);font-size:0.7rem">${isR?'Document Issue':'Model Issue'}</span>
+        <span style="color:var(--text-3);font-size:0.69rem;margin-left:auto">${lt.created_at||''}</span>
+      </div>
+      ${lt.title?`<div style="font-size:0.74rem;color:var(--text-2);margin-top:4px">${lt.title}</div>`:''}
+    `;
+  }
+
+  // Similar tickets
+  if(data.similar_tickets&&data.similar_tickets.length>0){
+    document.getElementById('similar-tickets-section').style.display='';
+    const list=document.getElementById('similar-tickets-list');
+    list.innerHTML='';
+    data.similar_tickets.forEach(t=>{
+      const isR=t.type==='true_negative';
+      const url=isR?`https://rally.company.com/stories/${t.ticket_id}`:`https://gitlab.company.com/issues/${t.ticket_id}`;
+      const div=document.createElement('div');
+      div.style.cssText='display:flex;align-items:center;gap:7px;padding:6px 9px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:5px;font-size:0.77rem';
+      div.innerHTML=`<a href="${url}" target="_blank" class="ticket-chip ${isR?'rally':'gitlab'}">${isR?'📋':'🐛'} ${t.ticket_id}</a>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)">${t.title||'(untitled)'}</span>
+        <span style="font-size:0.69rem;color:var(--text-3)">${t.created_at||''}</span>
+        <button class="btn btn-outline btn-xs" onclick="linkToTicket('${t.ticket_id}','${t.type}','${url}')"><i class="bi bi-link-45deg"></i> Link</button>`;
+      list.appendChild(div);
+    });
+  }
+}
+
+function applyAISuggestion(){
+  if(!aiSuggestion)return;
+  selectType(aiSuggestion.suggestion);
+  const el=document.getElementById('modal-element-name').textContent;
+  if(aiSuggestion.suggestion==='true_negative'){
+    const t=document.getElementById('rally-title'); if(!t.value) t.value=`Format normalisation — ${el}`;
+    const d=document.getElementById('rally-desc');  if(!d.value) d.value=aiSuggestion.reason;
+  }else{
+    const t=document.getElementById('gitlab-title'); if(!t.value) t.value=`[DocValidator] Data mismatch — ${el}`;
+    const d=document.getElementById('gitlab-desc');  if(!d.value) d.value=aiSuggestion.reason;
+  }
+}
+
+function linkToTicket(ticketId,type,url){
+  selectedRefTicket={ticket_id:ticketId,type,url};
+  selectType(type);
+  if(type==='true_negative') document.getElementById('rally-ref').value=ticketId;
+  else document.getElementById('gitlab-ref').value=ticketId;
+  showToast(`Will link to existing ticket ${ticketId}`,'info');
+}
+
+function closeModal(){document.getElementById('classifyModal').classList.remove('open');}
+
+function selectType(type){
+  currentType=type;
+  document.getElementById('rally-fields').style.display=type==='true_negative'?'block':'none';
+  document.getElementById('gitlab-fields').style.display=type==='false_negative'?'block':'none';
+  document.getElementById('card-rally').className=type==='true_negative'?'type-card selected-rally':'type-card';
+  document.getElementById('card-gitlab').className=type==='false_negative'?'type-card selected-gitlab':'type-card';
+  document.getElementById('btn-submit-classify').disabled=false;
+}
+
+async function submitClassify(){
+  if(!currentType)return;
+  const isRally=currentType==='true_negative';
+  const title=isRally?document.getElementById('rally-title').value.trim():document.getElementById('gitlab-title').value.trim();
+  const desc=isRally?document.getElementById('rally-desc').value.trim():document.getElementById('gitlab-desc').value.trim();
+  const assignee=isRally?document.getElementById('rally-assignee').value:document.getElementById('gitlab-assignee').value;
+  const severity=isRally?document.getElementById('rally-priority').value:document.getElementById('gitlab-severity').value;
+  const refTicket=isRally?document.getElementById('rally-ref').value.trim():document.getElementById('gitlab-ref').value.trim();
+  const ticketStatus=isRally?document.getElementById('rally-status').value:document.getElementById('gitlab-status').value;
+  if(!title&&!selectedRefTicket){showToast('Please enter a title.','error');return;}
+  const btn=document.getElementById('btn-submit-classify');
+  btn.innerHTML='<i class="bi bi-arrow-repeat spin-icon"></i> Submitting…';btn.disabled=true;
+  const res=await fetch('/api/classify',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({idx:currentIdx,type:currentType,title,description:desc,assignee,severity,
+      incident_id:currentIncident,ref_ticket:refTicket||'',ticket_ref_note:ticketStatus})});
+  const data=await res.json();
+  if(data.status==='success'){
+    showToast(data.message,'success');
+    document.getElementById('conf-ticket-id').textContent=data.ticket_id;
+    document.getElementById('conf-system').textContent=data.system;
+    const u=document.getElementById('conf-url');u.href=data.ticket_url;u.textContent=data.ticket_url;
+    document.getElementById('ticket-confirm').style.display='';
+    document.getElementById('btn-screenshot').style.display='';
+    btn.style.display='none';
+    updateRowClassified(currentIdx,currentType,data.ticket_id,data.system,data.ticket_url);
+  }else{
+    showToast(data.message||'Error.','error');
+    btn.innerHTML='<i class="bi bi-send-fill"></i> Submit';btn.disabled=false;
+  }
+}
+
+function updateRowClassified(idx,type,ticketId,system,ticketUrl){
+  const row=document.getElementById(`row-${idx}`);
+  if(row) row.className=type==='true_negative'?'row-classified-rally':'row-classified-gitlab';
+  const ac=document.getElementById(`actions-${idx}`);
+  if(ac){
+    const cls=type==='true_negative'?'rally':'gitlab';
+    const ico=type==='true_negative'?'📋':'🐛';
+    ac.innerHTML=`<a href="${ticketUrl}" target="_blank" class="ticket-chip ${cls}">${ico} ${ticketId} <i class="bi bi-box-arrow-up-right" style="font-size:0.6rem"></i></a>`;
+  }
+}
+
+async function copyScreenshot(){
+  const el=document.getElementById('ticket-confirm-inner');
+  try{
+    const canvas=await html2canvas(el,{scale:2,backgroundColor:'#ffffff'});
+    canvas.toBlob(async(blob)=>{
+      try{await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);showToast('Screenshot copied!','success');}
+      catch(e){window.open(canvas.toDataURL(),'_blank');showToast('Opened in new tab','info');}
+    });
+  }catch(e){showToast('Screenshot failed: '+e.message,'error');}
+}
+
+document.getElementById('classifyModal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

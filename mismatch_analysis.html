@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% set active_nav = "ma" %}
+{% set step = 0 %}
+{% block title %}Mismatch Analysis{% endblock %}
+
+{% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  .ma-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+  .ma-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+  @media(max-width:1000px){.ma-grid,.ma-grid-3{grid-template-columns:1fr}}
+  .chart-wrap{padding:16px;height:240px;position:relative}
+  .insight-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--surface-3);font-size:0.8rem}
+  .insight-row:last-child{border-bottom:none}
+  .insight-bar{flex:1;height:8px;background:var(--surface-3);border-radius:4px;overflow:hidden}
+  .insight-bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--mismatch),#ef4444)}
+  .insight-bar-fill.rally{background:linear-gradient(90deg,var(--rally),#f59e0b)}
+  .ai-qa-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-sm)}
+  .ai-messages{height:260px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:9px}
+  .ai-msg{max-width:88%;padding:8px 11px;border-radius:8px;font-size:0.79rem;line-height:1.5}
+  .ai-msg.user{background:var(--navy);color:#fff;align-self:flex-end;border-radius:8px 8px 0 8px}
+  .ai-msg.bot{background:var(--surface-2);color:var(--text);align-self:flex-start;border-radius:8px 8px 8px 0;border:1px solid var(--border)}
+  .ai-input-row{display:flex;gap:6px;padding:9px 12px;border-top:1px solid var(--border);background:var(--surface-2)}
+  .ai-input{flex:1;height:32px;padding:0 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.79rem;outline:none;font-family:'IBM Plex Sans',sans-serif}
+  .ai-input:focus{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-glow)}
+  .status-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;display:inline-block}
+  .resolution-funnel{display:flex;flex-direction:column;gap:6px;padding:14px 16px}
+  .funnel-row{display:flex;align-items:center;gap:10px;font-size:0.8rem}
+  .funnel-track{flex:1;height:22px;background:var(--surface-3);border-radius:4px;overflow:hidden}
+  .funnel-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:0.7rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;transition:width 0.4s ease}
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+<div class="breadcrumb-bar">
+  <a href="/dashboard"><i class="bi bi-house-fill"></i> Dashboard</a>
+  <span class="sep">/</span>
+  <span class="current">Mismatch Analysis</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- PAGE HEADER -->
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Mismatch Analysis</h1>
+    <div class="page-subtitle">Deep-dive into pattern distribution, classification status and resolution health</div>
+  </div>
+  <div style="display:flex;gap:7px">
+    <a href="/validations?status=Mismatch" class="btn btn-outline btn-sm"><i class="bi bi-exclamation-circle"></i> View All Mismatches</a>
+    <a href="/api/export/validations" class="btn btn-teal btn-sm"><i class="bi bi-download"></i> Export CSV</a>
+  </div>
+</div>
+
+<!-- KPI ROW -->
+<div class="stat-row" style="margin-bottom:18px">
+  {% set total_mis_all = extraction_rows|selectattr('comparison','equalto','Mismatch')|list|length %}
+  {% set total_classified = classified|length %}
+  {% set unclass = [total_mis_all - total_classified, 0]|max %}
+  <div class="stat-chip" style="border-left:3px solid var(--mismatch)">
+    <div class="stat-icon" style="background:var(--mismatch-bg);color:var(--mismatch)"><i class="bi bi-x-circle-fill"></i></div>
+    <div><div class="stat-val" style="color:var(--mismatch)">{{ total_mis_all }}</div><div class="stat-lbl">Total Mismatches</div></div>
+  </div>
+  <div class="stat-chip" style="border-left:3px solid var(--rally)">
+    <div class="stat-icon" style="background:var(--rally-bg);color:var(--rally)"><i class="bi bi-bookmark-fill"></i></div>
+    <div><div class="stat-val" style="color:var(--rally)">{{ doc_issue }}</div><div class="stat-lbl">Document Issues</div></div>
+  </div>
+  <div class="stat-chip" style="border-left:3px solid var(--gitlab)">
+    <div class="stat-icon" style="background:var(--gitlab-bg);color:var(--gitlab)"><i class="bi bi-bug-fill"></i></div>
+    <div><div class="stat-val" style="color:var(--gitlab)">{{ model_issue }}</div><div class="stat-lbl">Model Issues</div></div>
+  </div>
+  <div class="stat-chip" style="border-left:3px solid #64748b">
+    <div class="stat-icon" style="background:var(--surface-3);color:var(--text-3)"><i class="bi bi-question-circle-fill"></i></div>
+    <div><div class="stat-val">{{ unclassified }}</div><div class="stat-lbl">Unclassified</div></div>
+  </div>
+  <div class="stat-chip" style="border-left:3px solid var(--match)">
+    <div class="stat-icon" style="background:var(--match-bg);color:var(--match)"><i class="bi bi-check2-circle"></i></div>
+    <div><div class="stat-val" style="color:var(--match)">{{ status_counts.Resolved }}</div><div class="stat-lbl">Resolved</div></div>
+  </div>
+</div>
+
+<!-- ROW 1: Doc Mismatches + Category Breakdown -->
+<div class="ma-grid">
+
+  <!-- Mismatch by Document -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="card-icon"><i class="bi bi-bar-chart-fill"></i></div>Mismatch Count by Document</div>
+    </div>
+    <div class="chart-wrap"><canvas id="docMisChart"></canvas></div>
+  </div>
+
+  <!-- Mismatch by Element (top N) -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="card-icon"><i class="bi bi-list-ol"></i></div>Top Mismatching Elements</div>
+    </div>
+    <div style="padding:12px 14px 6px">
+      {% set max_count = element_counts.values()|max if element_counts else 1 %}
+      {% for el, cnt in element_counts.items() %}
+      <div class="insight-row">
+        <span class="mono text-xs fw-600" style="min-width:180px;color:var(--text-2)">{{ el }}</span>
+        <div class="insight-bar"><div class="insight-bar-fill" style="width:{{ (cnt/max_count*100)|round }}%"></div></div>
+        <span class="badge badge-mismatch" style="font-size:0.65rem;min-width:22px;justify-content:center">{{ cnt }}</span>
+      </div>
+      {% else %}
+      <div style="padding:20px;text-align:center;color:var(--text-3);font-size:0.8rem">No mismatches recorded yet</div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<!-- ROW 2: Classification Donut + Resolution Funnel + Segment Chart -->
+<div class="ma-grid-3">
+
+  <!-- Classification Breakdown -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="card-icon"><i class="bi bi-pie-chart-fill"></i></div>Classification Split</div>
+    </div>
+    <div class="chart-wrap"><canvas id="classDonut"></canvas></div>
+  </div>
+
+  <!-- Resolution Funnel -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="card-icon"><i class="bi bi-funnel-fill"></i></div>Ticket Resolution Funnel</div>
+    </div>
+    <div class="resolution-funnel">
+      {% set total_tickets = doc_issue + model_issue %}
+      {% if total_tickets > 0 %}
+      {% for label, count, color in [
+        ('Open',          status_counts.Open,         '#d97706'),
+        ('In Progress',   status_counts['In Progress'],'#2563eb'),
+        ('Resolved',      status_counts.Resolved,     '#0d7a3e'),
+        ('Closed',        status_counts.Closed,       '#64748b')
+      ] %}
+      <div class="funnel-row">
+        <span style="width:90px;font-size:0.77rem;color:var(--text-2);font-weight:600">{{ label }}</span>
+        <div class="funnel-track">
+          <div class="funnel-fill" style="width:{{ ([count/total_tickets*100,100]|min)|round }}%;background:{{ color }}">
+            {% if count > 0 %}{{ count }}{% endif %}
+          </div>
+        </div>
+        <span style="width:28px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:0.77rem;color:var(--text-2)">{{ count }}</span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div style="padding:20px;text-align:center;color:var(--text-3);font-size:0.8rem">No tickets classified yet.<br>Classify mismatches from the detail view.</div>
+      {% endif %}
+    </div>
+    <div style="padding:10px 16px;border-top:1px solid var(--border);font-size:0.75rem;color:var(--text-3)">
+      Total: {{ doc_issue + model_issue }} tickets raised this session
+    </div>
+  </div>
+
+  <!-- Market Segment Breakdown -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="card-icon"><i class="bi bi-buildings-fill"></i></div>By Market Segment</div>
+    </div>
+    <div class="chart-wrap"><canvas id="segChart"></canvas></div>
+  </div>
+
+</div>
+
+<!-- ROW 3: Category Analysis + AI Assistant -->
+<div class="ma-grid">
+
+  <!-- Category Breakdown -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="card-icon"><i class="bi bi-tags-fill"></i></div>Mismatch by Category</div>
+      <span style="font-size:0.7rem;color:rgba(255,255,255,0.45)">Distribution across data element categories</span>
+    </div>
+    <div class="chart-wrap" style="height:200px"><canvas id="catChart"></canvas></div>
+    {% if classified %}
+    <div style="padding:12px 16px;border-top:1px solid var(--border)">
+      <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-3);margin-bottom:8px">Classified Tickets This Session</div>
+      {% for idx, cls in classified.items() %}
+      {% set el = extraction_rows[idx|int].data_element if idx|int < extraction_rows|length else '?' %}
+      {% set isR = cls.type == 'true_negative' %}
+      {% set url = 'https://rally.company.com/stories/'+cls.ticket_id if isR else 'https://gitlab.company.com/issues/'+cls.ticket_id %}
+      <div class="insight-row" style="padding:6px 0">
+        <a href="{{ url }}" target="_blank" class="ticket-chip {% if isR %}rally{% else %}gitlab{% endif %}">{{ cls.ticket_id }}</a>
+        <span class="mono text-xs" style="color:var(--text-2)">{{ el }}</span>
+        <span class="badge {% if cls.ticket_status=='Resolved' %}badge-resolved{% elif cls.ticket_status=='In Progress' %}badge-inprogress{% else %}badge-pending{% endif %}" style="font-size:0.62rem;margin-left:auto">{{ cls.ticket_status or 'Open' }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- AI Assistant Q&A -->
+  <div class="ai-qa-panel">
+    <div class="card-header" style="background:linear-gradient(135deg,var(--navy-mid),var(--navy-light))">
+      <div class="card-title"><div class="card-icon" style="background:rgba(0,168,180,0.2)"><i class="bi bi-stars"></i></div>AI Analysis Assistant</div>
+      <span style="font-size:0.7rem;color:rgba(255,255,255,0.45)">Ask questions about this analysis</span>
+    </div>
+    <div class="ai-messages" id="ai-messages">
+      <div class="ai-msg bot">
+        <strong>🔍 Mismatch Analysis Ready</strong><br>
+        I can help interpret these patterns. Try:<br>
+        <em>"Why are there so many date mismatches?"</em><br>
+        <em>"How should I classify commission mismatches?"</em><br>
+        <em>"What's the resolution rate?"</em>
+      </div>
+    </div>
+    <div style="padding:10px 12px;background:var(--surface-2);border-top:1px solid var(--border)">
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+        {% for q in ['Show mismatch patterns','Classify date issues','Resolution status','Rally vs GitLab split'] %}
+        <button class="btn btn-outline btn-xs" onclick="sendQ('{{ q }}')">{{ q }}</button>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="ai-input-row">
+      <input class="ai-input" id="ai-input" type="text" placeholder="Ask about mismatch patterns, classification…">
+      <button class="btn btn-teal btn-sm" onclick="sendAIMessage()"><i class="bi bi-send-fill"></i></button>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* CHARTS */
+const docMisData={{ doc_mismatches | tojson }};
+const catData={{ category_counts | tojson }};
+const segData={{ seg_stats | tojson }};
+
+/* Doc Mismatch Bar */
+new Chart(document.getElementById('docMisChart'),{
+  type:'bar',
+  data:{
+    labels:Object.keys(docMisData).map(d=>d.length>22?d.slice(0,20)+'…':d),
+    datasets:[{label:'Mismatches',data:Object.values(docMisData),backgroundColor:'rgba(185,28,28,0.7)',borderColor:'#b91c1c',borderWidth:1,borderRadius:4}]
+  },
+  options:{
+    indexAxis:'y',responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}
+  }
+});
+
+/* Category Donut */
+new Chart(document.getElementById('catChart'),{
+  type:'bar',
+  data:{
+    labels:Object.keys(catData).map(k=>k.replace('_',' ').replace(/\b\w/g,c=>c.toUpperCase())),
+    datasets:[{label:'Mismatches',data:Object.values(catData),backgroundColor:['rgba(29,78,216,0.7)','rgba(22,101,52,0.7)','rgba(124,58,237,0.7)','rgba(185,28,28,0.7)'],borderRadius:4}]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10}}}}
+  }
+});
+
+/* Classification Donut */
+const di={{ doc_issue }}, mi={{ model_issue }}, un={{ unclassified }};
+new Chart(document.getElementById('classDonut'),{
+  type:'doughnut',
+  data:{
+    labels:['Document Issue','Model Issue','Unclassified'],
+    datasets:[{data:[di||0,mi||0,un||1],backgroundColor:['rgba(217,119,6,0.8)','rgba(226,67,41,0.8)','rgba(106,132,154,0.5)'],borderColor:['#d97706','#e24329','#c8d3e1'],borderWidth:2,hoverOffset:4}]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,cutout:'60%',
+    plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:7}}}
+  }
+});
+
+/* Segment Chart */
+const segLabels=Object.keys(segData);
+const segTotal=segLabels.map(k=>segData[k].total);
+const segMis=segLabels.map(k=>segData[k].mismatches);
+new Chart(document.getElementById('segChart'),{
+  type:'bar',
+  data:{
+    labels:segLabels,
+    datasets:[
+      {label:'Total',data:segTotal,backgroundColor:'rgba(0,168,180,0.5)',borderColor:'#00a8b4',borderWidth:1,borderRadius:3},
+      {label:'Mismatch',data:segMis,backgroundColor:'rgba(185,28,28,0.7)',borderColor:'#b91c1c',borderWidth:1,borderRadius:3},
+    ]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:7}}},
+    scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10}}}}
+  }
+});
+
+/* AI ASSISTANT */
+const aiMessages=document.getElementById('ai-messages');
+function sendQ(q){document.getElementById('ai-input').value=q;sendAIMessage();}
+async function sendAIMessage(){
+  const inp=document.getElementById('ai-input');
+  const q=inp.value.trim();if(!q)return;
+  inp.value='';
+  const ub=document.createElement('div');ub.className='ai-msg user';ub.textContent=q;
+  aiMessages.appendChild(ub);aiMessages.scrollTop=9999;
+  const lb=document.createElement('div');lb.className='ai-msg bot';lb.innerHTML='<i class="bi bi-arrow-repeat spin-icon"></i> Thinking…';
+  aiMessages.appendChild(lb);aiMessages.scrollTop=9999;
+  try{
+    const r=await fetch('/api/ai-qa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})});
+    const d=await r.json();
+    lb.innerHTML=d.answer.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>').replace(/\n/g,'<br>');
+  }catch(e){lb.innerHTML='Unable to process request.';}
+  aiMessages.scrollTop=9999;
+}
+document.getElementById('ai-input').addEventListener('keydown',e=>{if(e.key==='Enter')sendAIMessage();});
+</script>
+{% endblock %}
